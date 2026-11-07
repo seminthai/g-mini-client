@@ -1,0 +1,1956 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Golos mini client</title>
+<script src="golos.min.js"></script>
+<script src="markdown-it.min.js"></script>
+<style>
+    /* Базовые стили */
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; background: #e8f4f8; color: #333; }
+    header { background: #fff; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 100; }
+    .logo { font-size: 20px; font-weight: bold; cursor: pointer; color: #2b70b8; }
+    .nav-left { display: flex; gap: 15px; }
+    .nav-left button { background: none; border: none; font-size: 16px; cursor: pointer; color: #555; font-weight: bold; padding: 5px 10px; transition: 0.2s; }
+    .nav-left button:hover, .nav-left button.active { color: #2b70b8; border-bottom: 2px solid #2b70b8; }
+    .user-actions { display: flex; gap: 10px; align-items: center; }
+    .user-actions button { padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+    .btn-primary { background: #2b70b8; color: white; }
+    .btn-primary:hover { background: #1a4f85; }
+    .btn-outline { background: transparent; border: 1px solid #2b70b8; color: #2b70b8; }
+    .btn-outline:hover { background: #f0f4f8; }
+    .container { max-width: 700px; margin: 20px auto; padding: 0 15px; }
+    
+    /* Карточка поста в ленте */
+    .post-card { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 15px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border-left: 5px solid #2b70b8; display: flex; gap: 15px; }
+    .post-image { width: 100px; height: 100px; object-fit: cover; border-radius: 8px; flex-shrink: 0; background: #eee; }
+    .post-content { flex-grow: 1; }
+    .post-content h3 { margin: 0 0 10px; font-size: 18px; color: #1a1a1a; }
+    .post-meta { font-size: 14px; color: #777; margin-bottom: 10px; }
+    .post-meta b { cursor: pointer; color: #2b70b8; }
+    .post-meta b:hover { text-decoration: underline; }
+    .post-stats { font-size: 13px; color: #555; display: flex; gap: 15px; margin-bottom: 15px; }
+    .read-btn { background: #2b70b8; color: white; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+    .read-btn:hover { background: #1a4f85; }
+    
+    /* Модальные окна */
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+    .modal-content { background: #fff; padding: 25px; border-radius: 12px; width: 350px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); position: relative; }
+    .modal-close { position: absolute; top: 15px; right: 15px; cursor: pointer; font-size: 20px; color: #999; }
+    .modal-content input, .modal-content textarea { width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; font-family: inherit; }
+    
+    /* Стили для окна чтения поста */
+    #postModal { align-items: flex-start; padding-top: 50px; overflow-y: auto; }
+    #postModal .modal-content { width: 800px; max-width: 95%; text-align: left; max-height: 85vh; overflow-y: auto; padding: 30px; }
+    .floating-close { position: fixed; right: 30px; top: 20px; background: #fff; border-radius: 50%; width: 40px; height: 40px; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 24px; cursor: pointer; z-index: 1001; color: #555; transition: 0.2s; }
+    .floating-close:hover { background: #f0f0f0; color: #000; }
+    
+    /* Контент внутри поста */
+    #postContentContainer h1 { font-size: 24px; margin-top: 0; color: #1a1a1a; margin-bottom: 15px; }
+    #postContentContainer .post-meta { font-size: 14px; color: #777; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; }
+    #postContentContainer .content { line-height: 1.6; color: #333; font-size: 16px; }
+    #postContentContainer .content img { max-width: 100%; height: auto; border-radius: 8px; margin: 15px 0; display: block; }
+    #postContentContainer .content a { color: #2b70b8; text-decoration: none; font-weight: bold; cursor: pointer; }
+    #postContentContainer .content a:hover { text-decoration: underline; }
+    #postContentContainer .content blockquote { border-left: 4px solid #ccc; margin-left: 0; padding-left: 15px; color: #666; }
+    #postContentContainer .content h2, #postContentContainer .content h3 { margin-top: 25px; }
+    
+    /* Стили для таблиц */
+    #postContentContainer .content table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 15px; }
+    #postContentContainer .content th, #postContentContainer .content td { border: 1px solid #ddd; padding: 12px; vertical-align: middle; }
+    #postContentContainer .content th { background-color: #f8f9fa; font-weight: bold; text-align: left; }
+    #postContentContainer .content td img { margin: 0 auto; display: block; }
+
+    /* Стили для обтекания картинок */
+    #postContentContainer .content .pull-right { float: right; margin: 0 0 15px 15px; max-width: 50%; }
+    #postContentContainer .content .pull-left { float: left; margin: 0 15px 15px 0; max-width: 50%; }
+    #postContentContainer .content::after { content: ""; display: table; clear: both; }
+	
+	/* Комментарии */
+    .comments-section { margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; }
+    
+    .comment-item { 
+        margin-bottom: 12px; 
+        padding: 10px 15px; 
+        background: #f9f9f9; 
+        border-radius: 8px; 
+        border-left: 3px solid #2b70b8; 
+        word-wrap: break-word;
+    }
+    
+    .comment-header { font-size: 14px; color: #555; margin-bottom: 5px; }
+    .comment-header b { cursor: pointer; color: #2b70b8; }
+    .comment-header b:hover { text-decoration: underline; }
+    .comment-body { font-size: 15px; line-height: 1.5; margin-bottom: 10px; }
+    .comment-body img { max-width: 100%; border-radius: 4px; }
+    
+    .reply-btn { 
+        background: none; border: 1px solid #2b70b8; color: #2b70b8; 
+        padding: 4px 10px; border-radius: 4px; cursor: pointer; 
+        font-size: 12px; font-weight: bold; transition: 0.2s; 
+    }
+    .reply-btn:hover { background: #2b70b8; color: white; }
+
+    .comment-replies {
+        margin-top: 10px;
+        padding-left: 15px;
+        border-left: 2px solid #d0e1f0;
+    }
+	
+	.vote-btn { 
+        background: #e8f4f8; border: 1px solid #2b70b8; color: #2b70b8; 
+        padding: 4px 10px; border-radius: 15px; cursor: pointer; font-size: 12px; 
+        font-weight: bold; transition: 0.2s; display: inline-flex; align-items: center; gap: 4px;
+    }
+    .vote-btn:hover { background: #2b70b8; color: white; }
+    .vote-btn.voted { background: #2b70b8; color: white; cursor: default; }
+	
+	#replyModal { z-index: 1002; }
+    #loadMoreBtn { display: block; width: 100%; padding: 15px; background: #fff; border: 1px solid #ccc; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; color: #2b70b8; margin-bottom: 20px; }
+    #loadMoreBtn:hover { background: #f0f4f8; }
+
+    /* Профиль */
+    .profile-header { display: flex; gap: 20px; align-items: flex-start; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
+    .profile-avatar { width: 80px; height: 80px; border-radius: 50%; object-fit: cover; background: #eee; flex-shrink: 0; }
+    .profile-info { flex-grow: 1; }
+    .profile-info h2 { margin: 0 0 5px; font-size: 22px; color: #1a1a1a; }
+    .profile-reputation { font-size: 14px; color: #777; margin-bottom: 8px; }
+    .profile-actions { display: flex; gap: 10px; margin-top: 10px; }
+    .profile-posts-title { font-size: 18px; font-weight: bold; margin: 20px 0 15px; color: #1a1a1a; }
+    .profile-post-item { padding: 12px 0; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
+    .profile-post-item:hover { background: #f8fafc; }
+    .profile-post-item h4 { margin: 0 0 5px; font-size: 15px; color: #2b70b8; }
+    .profile-post-item .meta { font-size: 13px; color: #777; }
+
+    /* Упоминания */
+    .mention-link { color: #2b70b8; font-weight: bold; cursor: pointer; text-decoration: none; }
+    .mention-link:hover { text-decoration: underline; }
+
+    /* Редактор */
+    .editor-toolbar button { padding: 5px 10px; font-size: 14px; margin-right: 5px; }
+    #postPreview { background: #fff; }
+    #postPreview img { max-width: 100%; }
+	#postPreview blockquote {
+    border-left: 4px solid #ccc;
+    margin-left: 0;
+    padding-left: 15px;
+    color: #666;
+    background: #f9f9f9; /* Опционально: легкий фон, как в некоторых клиентах */
+    padding: 10px 15px;  /* Если добавил фон, добавь отступы */
+}
+	
+	/* Эмодзи */
+	.emoji-btn {
+    background: #f0f4f8;
+    border: 1px solid #d0d7de;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 18px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+.emoji-btn:hover {
+    background: #e1e8f0;
+    transform: scale(1.1);
+}
+</style>
+</head>
+<body>
+
+<header>
+    <div class="logo" onclick="switchTab('new')">Golos mini client</div>
+    <nav class="nav-left">
+        <button id="nav-new" onclick="switchTab('new')" class="active">Новое</button>
+        <button id="nav-myfeed" onclick="switchTab('myfeed')" style="display:none;">Моя лента</button>
+        <button id="nav-feed" onclick="switchTab('feed')" style="display:none;">Мой блог</button>
+    </nav>
+    <div class="user-actions" id="userActions"></div>
+</header>
+
+<div class="container" id="app"></div>
+<div class="container" id="loadMoreContainer" style="display:none;">
+    <button id="loadMoreBtn" onclick="loadMore()">Загрузить еще</button>
+</div>
+
+<!-- Авторизация -->
+<div class="modal" id="authModal">
+    <div class="modal-content">
+        <span class="modal-close" onclick="closeModal('authModal')">&times;</span>
+        <h3 style="margin-top:0;">Авторизация</h3>
+        <input type="text" id="authUsername" placeholder="Логин">
+        <input type="password" id="authKey" placeholder="Posting WIF ключ">
+		<label style="display:flex; align-items:center; gap:5px; font-size:14px; margin-bottom:10px; cursor:pointer; justify-content: flex-start;">
+    <input type="checkbox" id="rememberMe" style="width:16px; height:16px; margin:0; cursor:pointer;"> Запомнить меня на этом устройстве
+</label>
+        <button class="btn-primary" style="width:100%; padding:10px;" onclick="login()">Войти</button>
+        <div id="authStatus" style="margin-top:10px; color:red; font-size:14px;"></div>
+    </div>
+</div>
+
+<!-- Новый Редактор -->
+<div class="modal" id="editorModal">
+    <div class="modal-content" style="width: 800px; max-width: 95%; height: 90vh; display: flex; flex-direction: column; padding: 20px;">
+        <span class="modal-close" onclick="closeModal('editorModal')">&times;</span>
+        <h3 style="margin-top:0; flex-shrink: 0;">Новый пост</h3>
+        
+        <input type="text" id="postTitle" placeholder="Заголовок" style="margin-bottom: 10px; font-size: 18px; font-weight: bold; flex-shrink: 0;">
+        
+        <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-shrink: 0;">
+            <select id="postCategory" style="padding: 10px; border-radius: 5px; border: 1px solid #ccc; flex: 1;">
+                <!-- Заполняется из JS -->
+            </select>
+            <input type="text" id="postTags" placeholder="Дополнительные теги (через запятую)" style="flex: 2; padding: 10px; border-radius: 5px; border: 1px solid #ccc;">
+        </div>
+
+        <div class="editor-toolbar" style="display: flex; gap: 5px; margin-bottom: 10px; flex-shrink: 0; flex-wrap: wrap;">
+            <button class="btn-outline" onclick="insertMD('**', '**')" title="Жирный"><b>Ж</b></button>
+            <button class="btn-outline" onclick="insertMD('*', '*')" title="Курсив"><i>К</i></button>
+            <button class="btn-outline" onclick="insertMD('## ', '')" title="Заголовок">H2</button>
+            <button class="btn-outline" onclick="insertMD('> ', '')" title="Цитата">"</button>
+                        <button class="btn-outline" onclick="insertMD('![alt](', ')')" title="Картинка">🖼</button>
+            <button class="btn-outline" onclick="insertMD('[текст](', ')')" title="Ссылка">🔗</button>
+            <div style="flex-grow: 1;"></div>
+            <button class="btn-outline" id="tabEditorBtn" onclick="switchEditorTab('editor')">✏️ Редактор</button>
+            <button class="btn-outline" id="tabPreviewBtn" onclick="switchEditorTab('preview')">👁 Предпросмотр</button>
+        </div>
+
+        <div style="flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #ccc; border-radius: 5px;">
+            <textarea id="postBody" placeholder="Текст поста (поддерживается только Markdown, HTML-теги игнорируются)..." style="flex-grow: 1; padding: 15px; border: none; outline: none; resize: none; font-family: monospace; font-size: 15px; margin: 0; width: 100%; box-sizing: border-box;"></textarea>
+            <div id="postPreview" style="display: none; flex-grow: 1; padding: 15px; overflow-y: auto; line-height: 1.6; border-radius: 5px;"></div>
+        </div>
+
+        <!-- НАСТРОЙКИ ПУБЛИКАЦИИ -->
+        <div style="margin-top: 15px; flex-shrink: 0; padding: 15px; background: #f9f9f9; border-radius: 8px; border: 1px solid #eee;">
+            <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <label style="font-size: 14px; font-weight: bold; color: #555;">💰 Выплаты:</label>
+                    <select id="postPayout" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                        <option value="50">50% / 50% (SP + GBG)</option>
+                        <option value="100">100% в Силу Голоса (SP)</option>
+                        
+                    </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="postOnlyBlog" style="width: 16px; height: 16px; cursor: pointer;">
+                    <label for="postOnlyBlog" style="font-size: 14px; color: #555; cursor: pointer;">👁 Только для подписчиков</label>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn-primary" style="margin-top: 15px; padding: 15px; font-size: 16px; flex-shrink: 0;" onclick="publishPost()">Опубликовать</button>
+        <div id="editorStatus" style="margin-top: 10px; font-size: 14px; flex-shrink: 0; text-align: center;"></div>
+    </div>
+</div>
+
+<!-- Чтение поста -->
+<div class="modal" id="postModal">
+    <div class="floating-close" onclick="closePost()">&times;</div>
+    <div class="modal-content">
+        <div id="postContentContainer"></div>
+    </div>
+</div>
+
+<!-- Модалка ответа -->
+<div class="modal" id="replyModal">
+    <div class="modal-content">
+        <span class="modal-close" onclick="closeModal('replyModal')">&times;</span>
+        <h3 style="margin-top:0;">Ответ</h3>
+        <p style="font-size:14px; color:#555; margin-bottom:10px;" id="replyTargetText"></p>
+        <textarea id="replyBody" rows="6" placeholder="Ваш ответ..."></textarea>
+        
+        <!-- Панель смайлов -->
+        <div style="margin-bottom: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
+            <span style="font-size: 12px; color: #777; width: 100%; margin-bottom: 5px;">Быстрые смайлы:</span>
+            <button type="button" class="emoji-btn" onclick="insertEmoji('😀')">😀</button>
+            <button type="button" class="emoji-btn" onclick="insertEmoji('😂')">😂</button>
+            <button type="button" class="emoji-btn" onclick="insertEmoji('👍')">👍</button>
+            <button type="button" class="emoji-btn" onclick="insertEmoji('❤️')">❤️</button>
+            <button type="button" class="emoji-btn" onclick="insertEmoji('🔥')">🔥</button>
+            <button type="button" class="emoji-btn" onclick="insertEmoji('🎉')">🎉</button>
+            <button type="button" class="emoji-btn" onclick="insertEmoji('🤔')">🤔</button>
+            <button type="button" class="emoji-btn" onclick="insertEmoji('😢')">😢</button>
+            <button type="button" class="emoji-btn" onclick="insertEmoji('🙏')">🙏</button>
+            <button type="button" class="emoji-btn" onclick="insertEmoji('💯')">💯</button>
+        </div>
+
+        <button class="btn-primary" style="width:100%; padding:10px;" onclick="sendReply()">Отправить</button>
+        <div id="replyStatus" style="margin-top:10px; font-size:14px;"></div>
+    </div>
+</div>
+
+<!-- Профиль пользователя -->
+<div class="modal" id="profileModal">
+    <div class="modal-content" style="width: 600px; max-width: 95%; max-height: 85vh; overflow-y: auto;">
+        <span class="modal-close" onclick="closeModal('profileModal')">&times;</span>
+        <div id="profileContent">
+            <p>Загрузка профиля...</p>
+        </div>
+        <button id="loadMoreProfileBtn" onclick="loadMoreUserPosts()" style="display:none; width: 100%; padding: 10px; margin-top: 15px; background: #f0f4f8; border: 1px solid #2b70b8; border-radius: 5px; color: #2b70b8; font-weight: bold; cursor: pointer;">Загрузить ещё</button>
+    </div>
+</div>
+
+<!-- Модалка упоминаний -->
+<div class="modal" id="mentionsModal">
+    <div class="modal-content" style="width: 600px; max-width: 95%; max-height: 85vh; display: flex; flex-direction: column;">
+        <span class="modal-close" onclick="closeModal('mentionsModal')">&times;</span>
+        <h3 style="margin-top:0; flex-shrink: 0;">🔔 Упоминания</h3>
+        
+        <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; font-size: 14px;">
+            <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                <input type="checkbox" id="mentionsEnabledCheckbox" onchange="toggleMentionsSetting(this.checked)">
+                Включить уведомления
+            </label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button onclick="markAllMentionsAsRead()" style="background: none; border: 1px solid #2b70b8; color: #2b70b8; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;">Отметить всё прочитанным</button>
+                <select id="mentionsPeriodSelect" onchange="saveMentionsPeriod(this.value)" style="padding: 5px; border-radius: 4px; border: 1px solid #ccc;">
+                    <option value="24">За сутки</option>
+                    <option value="168">За неделю</option>
+                    <option value="720">За месяц</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="mentionsListContainer" style="flex-grow: 1; overflow-y: auto;">
+            <!-- Список заполняется из JS -->
+        </div>
+    </div>
+</div>
+
+<script>
+    golos.config.set('websocket', 'wss://api.aleksw.space/ws');
+    
+    // Глобальные переменные состояния
+    let currentUser = null, currentKey = null, currentTab = 'new', lastPost = null, isLoading = false;
+    let userSubscriptions = [];
+    let currentVoteWeight = 10000;
+    let profileCurrentUsername = null;
+    let profileLastPost = null;
+    let currentEditorTab = 'editor';
+
+    // Категории
+    const categories = [
+        { value: 'golos', label: 'Голос' },
+        { value: 'ru--avto', label: 'Авто' },
+        { value: 'ru--biznes', label: 'Бизнес' },
+        { value: 'ru--blokcheijn', label: 'Блокчейн' },
+        { value: 'ru--budushchee', label: 'Будущее' },
+        { value: 'ru--dom', label: 'Дом' },
+        { value: 'ru--eda', label: 'Еда' },
+        { value: 'ru--zhivotnyie', label: 'Животные' },
+        { value: 'ru--zhiznx', label: 'Жизнь' },
+        { value: 'ru--zdorovxe', label: 'Здоровье' },
+        { value: 'ru--igry', label: 'Игры' },
+        { value: 'ru--iskusstvo', label: 'Искусство' },
+        { value: 'ru--istoriya', label: 'История' },
+        { value: 'ru--kino', label: 'Кино' },
+        { value: 'ru--konkursy', label: 'Конкурсы' },
+        { value: 'ru--kriptovalyuty', label: 'Криптовалюты' },
+        { value: 'ru--kulxtura', label: 'Культура' },
+        { value: 'ru--literatura', label: 'Литература' },
+        { value: 'ru--mediczina', label: 'Медицина' },
+        { value: 'ru--muzyka', label: 'Музыка' },
+        { value: 'ru--nauka', label: 'Наука' },
+        { value: 'ru--nepoznannoe', label: 'Непознанное' },
+        { value: 'ru--obrazovanie', label: 'Образование' },
+        { value: 'ru--politika', label: 'Политика' },
+        { value: 'ru--pravo', label: 'Право' },
+        { value: 'ru--priroda', label: 'Природа' },
+        { value: 'ru--psikhologiya', label: 'Психология' },
+        { value: 'ru--puteshestviya', label: 'Путешествия' },
+        { value: 'ru--religiya', label: 'Религия' },
+        { value: 'ru--sport', label: 'Спорт' },
+        { value: 'ru--tvorchestvo', label: 'Творчество' },
+        { value: 'ru--tekhnologii', label: 'Технологии' },
+        { value: 'ru--treijding', label: 'Трейдинг' },
+        { value: 'ru--filosofiya', label: 'Философия' },
+        { value: 'ru--fotografiya', label: 'Фотография' },
+        { value: 'ru--yekonomika', label: 'Экономика' },
+        { value: 'ru--yumor', label: 'Юмор' },
+        { value: 'ru--prochee', label: 'Прочее' },
+        { value: 'en', label: 'English' }
+    ];
+
+function copyPostId(author, permlink, btnElement) {
+    // Формируем "блокчейн-нативный" идентификатор
+    const textToCopy = `@${author}/${permlink}`;
+    
+    // Используем современный API буфера обмена
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(textToCopy).then(() => {
+            if (btnElement) {
+                const originalHtml = btnElement.innerHTML;
+                const originalBg = btnElement.style.background;
+                const originalColor = btnElement.style.color;
+                
+                // Визуальный фидбек
+                btnElement.innerHTML = '✅ Скопировано';
+                btnElement.style.background = '#2b70b8';
+                btnElement.style.color = '#fff';
+                
+                setTimeout(() => {
+                    btnElement.innerHTML = originalHtml;
+                    btnElement.style.background = originalBg;
+                    btnElement.style.color = originalColor;
+                }, 1500);
+            }
+        }).catch(err => {
+            // Фолбэк, если браузер запретил доступ к буферу (например, в file://)
+            prompt('Не удалось скопировать автоматически. Скопируйте вручную:', textToCopy);
+        });
+    } else {
+        // Фолбэк для старых браузеров
+        prompt('Скопируйте ссылку на пост вручную:', textToCopy);
+    }
+}
+
+    function timeAgo(dateString) {
+        const date = new Date(dateString + 'Z'); const now = new Date();
+        const seconds = Math.floor((now - date) / 1000);
+        if (seconds < 60) return 'только что';
+        const minutes = Math.floor(seconds / 60); if (minutes < 60) return minutes + ' мин. назад';
+        const hours = Math.floor(minutes / 60); if (hours < 24) return hours + ' ч. назад';
+        return Math.floor(hours / 24) + ' дн. назад';
+    }
+
+    function getPreviewImage(post) {
+    // 1. Смотрим в метаданные
+    try {
+        const meta = JSON.parse(post.json_metadata);
+        if (meta.image && meta.image.length > 0) return fixImageUrl(meta.image[0]);
+    } catch (e) {}
+
+    const body = post.body || '';
+
+    // 2. Markdown-картинка ![alt](url)
+    let match = body.match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/i);
+    if (match) return fixImageUrl(match[1].trim());
+
+    // 3. Тег <img>
+    match = body.match(/<img[^>]+src=["']?([^"'>\s]+)["']?/i);
+    if (match) return fixImageUrl(match[1].trim());
+
+    // 4. Любая ссылка на картинку
+    match = body.match(/(https?:\/\/[^\s"'<>]+?\.(?:jpg|jpeg|png|gif|webp|svg))/i);
+    if (match) return fixImageUrl(match[1].trim());
+
+    return null;
+}
+
+    function formatPayout(post) {
+        let payout = post.pending_payout_value;
+        if (payout === '0.000 GBG') payout = post.total_payout_value;
+        return payout;
+    }
+
+    function formatReputation(raw) {
+        if (!raw || raw === '0') return '25';
+        const rep = parseInt(raw);
+        const sign = rep < 0 ? -1 : 1;
+        const abs = Math.abs(rep);
+        let level = Math.log10(abs);
+        level = Math.max(level - 9, 0);
+        return (level * 9 * sign + 25).toFixed(2);
+    }
+
+        function renderMarkdownWithMedia(text) {
+        // 1. Извлекаем iframe ДО рендера
+        const iframes = [];
+        // Ищем как одинарные, так и парные iframe
+        text = text.replace(/<iframe\b[^>]*>.*?<\/iframe>/gis, (match) => {
+            iframes.push(match);
+            return `\n\n@@IFRAME_${iframes.length - 1}@@\n\n`;
+        });
+        // На случай, если iframe без закрывающего тега (некорректный HTML)
+        text = text.replace(/<iframe\b[^>]*\/?>/gi, (match) => {
+            if (match.endsWith('/>')) return match; // Пропускаем, если уже закрыт
+            iframes.push(match + '</iframe>'); // Добавляем закрывающий
+            return `\n\n@@IFRAME_${iframes.length - 1}@@\n\n`;
+        });
+
+        // 2. Обработка YouTube
+        const ytRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[?&][^\s]*)?/g;
+        text = text.replace(ytRegex, (match, videoId) => {
+            const isShorts = match.includes('/shorts/');
+            const width = isShorts ? '315' : '560';
+            const height = isShorts ? '560' : '315';
+            return `\n<div style="text-align: center; margin: 15px 0;"><iframe width="${width}" height="${height}" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe></div>\n`;
+        });
+
+        // 3. Обработка SoundCloud (если пришла голая ссылка)
+        const scRegex = /(?:https?:\/\/)?(?:www\.)?soundcloud\.com\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)(?:[^\s]*)?/g;
+        text = text.replace(scRegex, (match, user, track) => {
+            // Если это не внутри тега href (грубая проверка, но для наших целей сойдет)
+            if (match.includes('href=')) return match; 
+            
+            const iframeUrl = `https://w.soundcloud.com/player/?url=${encodeURIComponent(match)}&color=%23ff5500&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true`;
+            return `\n<div style="text-align: center; margin: 15px 0;"><iframe width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay" src="${iframeUrl}"></iframe></div>\n`;
+        });
+
+        // 4. Рендерим Markdown
+        const md = window.markdownit({ html: true, linkify: true, breaks: true });
+        let htmlBody = md.render(text);
+
+        // 5. Возвращаем iframe обратно (вместо маркеров)
+        iframes.forEach((iframeCode, index) => {
+            htmlBody = htmlBody.replace(`@@IFRAME_${index}@@`, iframeCode);
+        });
+
+        return htmlBody;
+    }
+
+    const processMentions = (root) => {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+        const nodesToReplace = [];
+        let node;
+        while (node = walker.nextNode()) {
+            if (node.parentNode.tagName === 'SCRIPT' || node.parentNode.tagName === 'STYLE' || node.parentNode.closest('a')) continue;
+            if (node.nodeValue.includes('@')) {
+                nodesToReplace.push(node);
+            }
+        }
+        
+        nodesToReplace.forEach(textNode => {
+            const regex = /@([a-zA-Z0-9\-\.]+(?:\/[a-zA-Z0-9\-_]+)?)/g;
+            const span = document.createElement('span');
+            span.innerHTML = textNode.nodeValue.replace(regex, '<span class="mention-link">@$1</span>');
+            textNode.parentNode.replaceChild(span, textNode);
+        });
+    };
+
+	        function processPostDOM(container) {
+        // 1. Обрабатываем iframe
+        container.querySelectorAll('iframe').forEach(iframe => {
+            const src = iframe.getAttribute('src') || '';
+            
+            // Если это SoundCloud — не трогаем размеры, только ставим ширину 100%
+            if (src.includes('soundcloud.com')) {
+                iframe.style.width = '100%';
+                // Оставляем высоту, которая была в оригинальном коде (обычно 166 или 450)
+                return; 
+            }
+
+            // Для YouTube и остальных — делаем адаптивный контейнер
+            if (iframe.parentElement.classList.contains('videoWrapper')) return;
+            const wrapper = document.createElement('div');
+            wrapper.className = 'videoWrapper';
+            wrapper.style.cssText = 'position:relative; padding-bottom:56.25%; height:0; overflow:hidden; margin: 15px 0;';
+            iframe.style.cssText = 'position:absolute; top:0; left:0; width:100%; height:100%; border:0;';
+            iframe.parentNode.insertBefore(wrapper, iframe);
+            wrapper.appendChild(iframe);
+        });
+
+        // 2. Обрабатываем картинки (чиним URL)
+        container.querySelectorAll('img').forEach(img => {
+            const src = img.getAttribute('src');
+            if (src) {
+                img.setAttribute('src', fixImageUrl(src));
+                if (!img.style.maxWidth) {
+                    img.style.maxWidth = '100%';
+                    img.style.height = 'auto';
+                    img.style.borderRadius = '8px';
+                    img.style.margin = '15px 0';
+                    img.style.display = 'block';
+                }
+            }
+        });
+
+        // 3. Превращаем ссылки YouTube в iframe (если они пришли как текст)
+        container.querySelectorAll('a').forEach(a => {
+            const href = a.getAttribute('href');
+            if (!href) return;
+            
+            // --- YouTube ---
+            const ytMatch = href.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+            if (ytMatch) {
+                const videoId = ytMatch[1];
+                const isShorts = href.includes('/shorts/');
+                const iframe = document.createElement('iframe');
+                iframe.src = `https://www.youtube.com/embed/${videoId}`;
+                iframe.width = isShorts ? '315' : '560';
+                iframe.height = isShorts ? '560' : '315';
+                iframe.frameBorder = '0';
+                iframe.allowFullscreen = true;
+                a.parentNode.replaceChild(iframe, a);
+                return;
+            }
+
+            // --- SoundCloud (если пришла просто ссылка) ---
+            const scMatch = href.match(/soundcloud\.com\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+/);
+            if (scMatch) {
+                const iframeUrl = `https://w.soundcloud.com/player/?url=${encodeURIComponent(href)}&color=%23ff5500&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true`;
+                const iframe = document.createElement('iframe');
+                iframe.src = iframeUrl;
+                iframe.width = '100%';
+                iframe.height = '166';
+                iframe.frameBorder = 'no';
+                iframe.scrolling = 'no';
+                iframe.allow = 'autoplay';
+                a.parentNode.replaceChild(iframe, a);
+            }
+        });
+    }
+	
+	function sanitizeHTML(container) {
+    // Разрешенные домены для iframe
+    const allowedIframeDomains = [
+        'youtube.com', 'youtu.be', 'youtube-nocookie.com',
+        'soundcloud.com', 'w.soundcloud.com',
+        'vimeo.com', 'player.vimeo.com',
+        'rutube.ru', 'vk.com', 'ok.ru', 'coub.com'
+    ];
+
+    // 1. Обрабатываем все iframe
+    container.querySelectorAll('iframe').forEach(iframe => {
+        const src = iframe.getAttribute('src') || '';
+        const isAllowed = allowedIframeDomains.some(domain => src.includes(domain));
+        
+        if (!isAllowed) {
+            // Если домен не разрешен — удаляем iframe
+            iframe.remove();
+        } else {
+            // Если разрешен — добавляем безопасные атрибуты
+            iframe.setAttribute('frameborder', '0');
+            iframe.setAttribute('allowfullscreen', 'true');
+            // Убираем лишние стили, которые могут сломать верстку
+            iframe.removeAttribute('style'); 
+        }
+    });
+
+    // 2. Удаляем все остальные потенциально опасные теги (script, style, object, embed, form и т.д.)
+    const dangerousTags = ['script', 'style', 'object', 'embed', 'form', 'input', 'button', 'link', 'meta'];
+    dangerousTags.forEach(tag => {
+        container.querySelectorAll(tag).forEach(el => el.remove());
+    });
+
+    // 3. Удаляем все атрибуты on* (onclick, onerror и т.д.), чтобы предотвратить XSS
+    container.querySelectorAll('*').forEach(el => {
+        Array.from(el.attributes).forEach(attr => {
+            if (attr.name.startsWith('on')) {
+                el.removeAttribute(attr.name);
+            }
+        });
+    });
+}
+
+    function switchTab(tab) {
+        if ((tab === 'feed' || tab === 'myfeed') && !currentUser) { openModal('authModal'); return; }
+        
+        currentTab = tab; 
+        lastPost = null;
+        
+        document.querySelectorAll('.nav-left button').forEach(btn => btn.classList.remove('active'));
+        if (tab === 'feed') document.getElementById('nav-feed').classList.add('active');
+        if (tab === 'myfeed') document.getElementById('nav-myfeed').classList.add('active');
+        if (tab === 'new') document.getElementById('nav-new').classList.add('active');
+        
+        document.getElementById('app').innerHTML = '<p>Загрузка...</p>';
+        document.getElementById('loadMoreContainer').style.display = 'none';
+        loadPosts();
+    }
+
+    function loadPosts() {
+        if (isLoading) return;
+        isLoading = true;
+
+        if (currentTab === 'myfeed') {
+            let currentEntryId = 0;
+            if (lastPost && lastPost.feed_entry_id) {
+                currentEntryId = lastPost.feed_entry_id;
+            }
+            const limit = 10;
+            
+            golos.api.getFeedEntries(currentUser, currentEntryId, limit, (err, result) => {
+                isLoading = false;
+                if (err || !result) { 
+                    document.getElementById('app').innerHTML = '<p>Ошибка загрузки ленты.</p>'; 
+                    return; 
+                }
+                
+                if (result.length === 0) {
+                    if (!lastPost) document.getElementById('app').innerHTML = '<p>В вашей ленте пока нет постов.</p>';
+                    document.getElementById('loadMoreContainer').style.display = 'none';
+                    return;
+                }
+
+                if (lastPost && result.length > 0 && result[0].entry_id === lastPost.feed_entry_id) {
+                    result.shift();
+                }
+                
+                if (result.length === 0) {
+                    document.getElementById('loadMoreContainer').style.display = 'none';
+                    return;
+                }
+
+                const lastEntry = result[result.length - 1];
+                lastPost = { feed_entry_id: lastEntry.entry_id }; 
+
+                const postsToLoad = result.map(item => ({
+                    author: item.author,
+                    permlink: item.permlink
+                }));
+
+                if (!currentEntryId) {
+                    document.getElementById('app').innerHTML = '';
+                }
+                
+                const loadFullPost = (author, permlink) => {
+                    return new Promise((resolve) => {
+                        golos.api.getContent(author, permlink, (err, post) => {
+                            if (err || !post) resolve(null);
+                            else resolve(post);
+                        });
+                    });
+                };
+
+                const fetchAll = async () => {
+                    for (const item of postsToLoad) {
+                        const post = await loadFullPost(item.author, item.permlink);
+                        if (post) renderPost(post);
+                    }
+                    
+                    if (result.length > limit-1) {
+                        document.getElementById('loadMoreContainer').style.display = 'block';
+                    }
+                };
+
+                fetchAll();
+            });
+            return;
+        }
+        const params = { limit: 6 };
+        if (lastPost) { params.start_author = lastPost.author; params.start_permlink = lastPost.permlink; }
+
+        const callback = (err, result) => {
+            isLoading = false;
+            if (err) { document.getElementById('app').innerHTML = '<p>Ошибка загрузки: ' + err + '</p>'; return; }
+            if (!result || result.length === 0) {
+                if (!lastPost) document.getElementById('app').innerHTML = '<p>Постов не найдено.</p>';
+                document.getElementById('loadMoreContainer').style.display = 'none';
+                return;
+            }
+            if (lastPost && result[0].permlink === lastPost.permlink) result.shift();
+            if (result.length === 0) { document.getElementById('loadMoreContainer').style.display = 'none'; return; }
+            if (!lastPost) document.getElementById('app').innerHTML = '';
+            
+            result.forEach(post => renderPost(post));
+            lastPost = result[result.length - 1];
+            document.getElementById('loadMoreContainer').style.display = 'block';
+        };
+
+        if (currentTab === 'new') {
+            golos.api.getDiscussionsByCreated(params, callback);
+        } else if (currentTab === 'feed') {
+            const authorParams = { limit: 6, start_author: currentUser, start_permlink: '' };
+            if (lastPost) { authorParams.start_permlink = lastPost.permlink; }
+            golos.api.getDiscussionsByAuthorBeforeDate(currentUser, authorParams.start_permlink, new Date().toISOString().split('.')[0], authorParams.limit, (err, res) => {
+                if (res) res = res.filter(p => p.author === currentUser);
+                callback(err, res);
+            });
+        }
+    }
+
+    function loadMore() { loadPosts(); }
+
+    function renderPost(post) {
+        const preview = getPreviewImage(post);
+        
+        let hasVoted = false;
+        let voteWeight = 0;
+        if (currentUser && post.active_votes) {
+            const userVote = post.active_votes.find(v => v.voter === currentUser);
+            if (userVote) {
+                hasVoted = true;
+                voteWeight = userVote.percent;
+            }
+        }
+
+             const voteBtnHTML = (post.max_accepted_payout === '0.000 GBG')
+            ? `<span style="font-size:12px; color:#777; font-weight:bold;">🚫 Без выплат</span>`
+            : (hasVoted 
+                ? `<button class="vote-btn voted" disabled>✅ ${voteWeight / 100}%</button>`
+                : `<button class="vote-btn" onclick="event.stopPropagation(); votePost('${post.author}', '${post.permlink}', this)">👍 Лайк</button>`);
+		
+        const card = document.createElement('div');
+        card.className = 'post-card';
+        card.innerHTML = `
+            ${preview ? `<img src="${preview}" class="post-image" loading="lazy" onerror="this.style.display='none'">` : ''}
+            <div class="post-content">
+                <h3>${post.title}</h3>
+                <div class="post-meta">Автор: <b>@${post.author}</b> · ${timeAgo(post.created)}</div>
+                <div class="post-stats">
+                    <span>💰 ${formatPayout(post)}</span>
+                    <span>💬 ${post.children}</span>
+                    ${voteBtnHTML}
+                </div>
+                <button class="read-btn" onclick="openPost('${post.author}', '${post.permlink}')">Читать >></button>
+            </div>
+        `;
+        document.getElementById('app').appendChild(card);
+    }
+
+    function fixImageUrl(url) {
+    if (!url) return '';
+    let fixed = url;
+    
+    // 1. Отрезаем мусорные префиксы (если есть)
+    const lastHttp = fixed.lastIndexOf('http');
+    if (lastHttp > 0) fixed = fixed.substring(lastHttp);
+
+    // 2. Если ссылка ведет на старый умерший домен images.golos.io
+    if (fixed.includes('images.golos.io/')) {
+        // Оборачиваем её в прокси images.golos.today. 
+        // Добавляем /100x100/ для оптимизации (или можно без размера).
+        // Если там уже есть 'https://', прокси сам разберется.
+        fixed = 'https://images.golos.today/75x75/' + fixed;
+    }
+
+    return fixed;
+}
+	
+    function votePost(author, permlink, btnElement) {
+        if (!currentUser || !currentKey) {
+            alert('Для голосования нужно авторизоваться!');
+            openModal('authModal');
+            return;
+        }
+
+        const originalText = btnElement.innerHTML;
+        btnElement.innerHTML = '⏳...';
+        btnElement.disabled = true;
+
+        const weight = currentVoteWeight;
+
+        golos.broadcast.vote(currentKey, currentUser, author, permlink, weight, (err, res) => {
+            if (err) {
+                const errMsg = err.message || JSON.stringify(err);
+                if (errMsg.includes('already voted') || errMsg.includes('similar way')) {
+                    alert('Вы уже голосовали за этот пост!');
+                    btnElement.innerHTML = '✅ Уже проголосовали';
+                    btnElement.classList.add('voted');
+                } else if (errMsg.includes('Expected version')) {
+                     alert('Ошибка версии блокчейна. Попробуйте обновить golos-lib-js в проекте (npm install golos-lib-js@latest).');
+                     btnElement.innerHTML = originalText;
+                     btnElement.disabled = false;
+                } else {
+                    alert('Ошибка голосования: ' + errMsg);
+                    btnElement.innerHTML = originalText;
+                    btnElement.disabled = false;
+                }
+            } else {
+                btnElement.innerHTML = '✅ Голос учтен';
+                btnElement.classList.add('voted');
+                btnElement.disabled = true;
+                updateVotingPower(); 
+            }
+        });
+    }
+	
+	window.openMentionsModal = function() {
+    document.getElementById('mentionsEnabledCheckbox').checked = isMentionsEnabled();
+    document.getElementById('mentionsPeriodSelect').value = getMentionsPeriod();
+    
+    const container = document.getElementById('mentionsListContainer');
+    if (!currentMentionsList || currentMentionsList.length === 0) {
+        container.innerHTML = '<p style="color:#777;">Упоминаний пока нет.</p>';
+    } else {
+        container.innerHTML = currentMentionsList.map(m => `
+            <div class="profile-post-item" style="padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; ${m.isRead ? 'opacity: 0.6;' : 'background: #f8fafc;'}" 
+                 onclick="handleMentionClick('${m.author}', '${m.permlink}')"
+                <h4 style="margin: 0 0 5px; font-size: 15px; color: #2b70b8;">${m.title}</h4>
+                <div style="font-size: 13px; color: #777;">От: <b>@${m.author}</b> · ${timeAgo(m.created)}</div>
+            </div>
+        `).join('');
+    }
+    
+    openModal('mentionsModal');
+};
+
+window.handleMentionClick = function(author, permlink) {
+    // 1. Отмечаем в localStorage
+    markMentionAsRead(author, permlink);
+
+    // 2. Ищем это упоминание в текущем списке и меняем его статус
+    const mention = currentMentionsList.find(m => m.author === author && m.permlink === permlink);
+    if (mention) {
+        mention.isRead = true;
+    }
+
+    // 3. Обновляем счетчик (бейдж)
+    updateMentionsBadgeUI();
+
+    // 4. Закрываем модалку упоминаний и открываем пост
+    closeModal('mentionsModal');
+    openPost(author, permlink);
+};
+
+function toggleMentionsSetting(enabled) {
+    localStorage.setItem('golos_mentions_enabled', enabled ? 'true' : 'false');
+    if (enabled) {
+        loadMentions();
+    } else {
+        const badge = document.getElementById('mentionsBadge');
+        if (badge) badge.style.display = 'none';
+    }
+}
+
+function saveMentionsPeriod(val) {
+    localStorage.setItem('golos_mentions_period', val);
+    loadMentions();
+}
+
+    window.openPost = function(author, permlink) {
+        openModal('postModal');
+        const container = document.getElementById('postContentContainer');
+        container.innerHTML = '<p>Загрузка поста...</p>';
+
+        golos.api.getContent(author, permlink, (err, post) => {
+            if (err || !post) { container.innerHTML = '<p>Ошибка загрузки поста.</p>'; return; }
+
+            let text = post.body;
+            const images = [];
+            const videos = [];
+
+            const ytRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})(?:[?&][^\s]*)?/g;
+            text = text.replace(ytRegex, (match, videoId) => {
+                const isShorts = match.includes('/shorts/');
+                const width = isShorts ? '315' : '560';
+                const height = isShorts ? '560' : '315';
+                const iframeHTML = `<div style="text-align: center; margin: 15px 0;"><iframe width="${width}" height="${height}" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe></div>`;
+                videos.push(iframeHTML);
+                return `%%VIDEO_${videos.length - 1}%%`;
+            });
+
+            text = text.replace(/<div[^>]*class=["'][^"']*(?:pull-right|pull-left)[^"']*["'][^>]*>[\s\S]*?<img[^>]+src=["']([^"']+)["'][^>]*>[\s\S]*?<\/div>/gi, (match, url) => {
+                const fixedUrl = fixImageUrl(url.trim());
+                images.push(match.replace(url, fixedUrl)); 
+                return `\n@@IMG_${images.length - 1}@@\n`;
+            });
+
+            text = text.replace(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi, (match, url) => {
+                const fixedUrl = fixImageUrl(url.trim());
+                images.push(`<img src="${fixedUrl}" style="max-width:100%; height:auto; border-radius:8px; margin:15px 0; display:block;">`);
+                return `\n@@IMG_${images.length - 1}@@\n`;
+            });
+
+            text = text.replace(/!\[.*?\]\((https?:\/\/[^\)]+)\)/gi, (match, url) => {
+                const fixedUrl = fixImageUrl(url.trim());
+                images.push(`<img src="${fixedUrl}" style="max-width:100%; height:auto; border-radius:8px; margin:15px 0; display:block;">`);
+                return `\n@@IMG_${images.length - 1}@@\n`;
+            });
+
+            text = text.replace(/(?:^|\s)(https?:\/\/[^\s"'<>]+?\.(?:jpg|jpeg|png|gif|webp|svg)(?:\?[^\s"'<>]*)?)(?=\s|$)/gi, (match, url) => {
+                const fixedUrl = fixImageUrl(url.trim());
+                images.push(`<img src="${fixedUrl}" style="max-width:100%; height:auto; border-radius:8px; margin:15px 0; display:block;">`);
+                return ` @@IMG_${images.length - 1}@@ `;
+            });
+
+            text = text.replace(/(\[[^\]]+\]\()([\s\S]*?)(\))/g, (match, start, middle, end) => {
+                return start + middle.replace(/\n/g, '').replace(/\s+/g, '') + end;
+            });
+
+            text = text.replace(/(\[[^\]]+\]\()([\s\S]*?)(\))/g, (match, start, middle, end) => {
+                 let cleanMiddle = middle.replace(/<b>(.*?)<\/b>/gi, '**$1**');
+                 return start + cleanMiddle + end;
+            });
+
+            text = text.replace(/\*\*\s*(.*?)\s*\*\*/g, '<b>$1</b>');
+
+            const md = window.markdownit({ html: true, linkify: true, breaks: true });
+            const centerRegex = /<center>([\s\S]*?)<\/center>/gi;
+            const parts = text.split(centerRegex);
+            let htmlBody = '';
+
+            for (let i = 0; i < parts.length; i++) {
+                if (i % 2 === 0) {
+                    htmlBody += md.render(parts[i]);
+                } else {
+                    let innerParsed = md.render(parts[i]);
+                    htmlBody += `<div style="text-align: center; margin: 15px 0;">${innerParsed}</div>`;
+                }
+				
+        window.currentPostAuthor = post.author;
+        window.currentPostPermlink = post.permlink;
+            }
+
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlBody;
+
+            function walkAndReplace(node) {
+                if (node.nodeType === 3) {
+                    let txt = node.nodeValue;
+                    let changed = false;
+                    images.forEach((imgHTML, index) => {
+                        if (txt.includes(`@@IMG_${index}@@`)) {
+                            txt = txt.split(`@@IMG_${index}@@`).join(imgHTML);
+                            changed = true;
+                        }
+                    });
+                    videos.forEach((iframeHTML, index) => {
+                        if (txt.includes(`%%VIDEO_${index}%%`)) {
+                            txt = txt.split(`%%VIDEO_${index}%%`).join(iframeHTML);
+                            changed = true;
+                        }
+                    });
+                    if (changed) {
+                        const tempSpan = document.createElement('span');
+                        tempSpan.innerHTML = txt;
+                        while (tempSpan.firstChild) { node.parentNode.insertBefore(tempSpan.firstChild, node); }
+                        node.parentNode.removeChild(node);
+                    }
+                } else if (node.nodeType === 1 && node.tagName !== 'SCRIPT' && node.tagName !== 'STYLE') {
+                    Array.from(node.childNodes).forEach(walkAndReplace);
+                }
+            }
+            walkAndReplace(tempDiv);
+
+            tempDiv.querySelectorAll('a').forEach(link => {
+                const href = link.getAttribute('href');
+                if (href && !href.includes('golos.id/') && !href.includes('golos.today/') && !href.includes('golos.io/') && !href.includes('golos.in/')) {
+                    link.setAttribute('target', '_blank');
+                    link.setAttribute('rel', 'noopener noreferrer');
+                }
+            });
+
+            processMentions(tempDiv);
+			sanitizeHTML(tempDiv); 
+			processPostDOM(tempDiv);
+
+            let postHasVoted = false;
+            let postVoteWeight = 0;
+            if (currentUser && post.active_votes) {
+                const userVote = post.active_votes.find(v => v.voter === currentUser);
+                if (userVote) {
+                    postHasVoted = true;
+                    postVoteWeight = userVote.percent;
+                }
+            }
+            
+                        const postVoteBtnHTML = (post.max_accepted_payout === '0.000 GBG')
+                ? `<span style="font-size:14px; color:#777; font-weight:bold; display:inline-flex; align-items:center;">🚫 Выплаты отклонены</span>`
+                : (postHasVoted 
+                    ? `<button class="vote-btn voted" style="font-size: 14px; padding: 8px 15px;" disabled>✅ Вы проголосовали (${postVoteWeight / 100}%)</button>`
+                    : `<button class="vote-btn" style="font-size: 14px; padding: 8px 15px;" onclick="votePost('${post.author}', '${post.permlink}', this)">👍 Аповут</button>`);
+            
+			container.innerHTML = `
+                <h1>${post.title}</h1>
+                <div class="post-meta">
+                    Автор: <b>@${post.author}</b> · ${timeAgo(post.created)} · 
+                    💰 ${formatPayout(post)} · 💬 ${post.children}
+                </div>
+                <div class="content">${tempDiv.innerHTML}</div>
+                
+                <div class="post-actions" style="margin-top: 20px; display: flex; gap: 15px; border-top: 1px solid #eee; padding-top: 15px;">
+                    ${postVoteBtnHTML}
+                    <button class="reply-btn" style="font-size: 14px; padding: 8px 15px;" onclick="openReplyModal('${post.author}', '${post.permlink}', '${post.title}')">💬 Ответить на пост</button>
+					<button class="reply-btn" style="font-size: 14px; padding: 8px 15px;" onclick="copyPostId('${post.author}', '${post.permlink}', this)">🔗 Поделиться</button>
+                </div>
+
+                <div class="comments-section" style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+                    <h3 style="margin-top:0;">Комментарии (${post.children})</h3>
+                    <div id="commentsContainer"></div>
+                </div>
+            `;
+            
+            loadComments(post.author, post.permlink);
+            
+            document.querySelector('#postModal .modal-content').scrollTop = 0;
+        });
+    };
+	
+    let replyParentAuthor = null;
+    let replyParentPermlink = null;
+
+    function openReplyModal(parentAuthor, parentPermlink, postTitle) {
+        if (!currentUser || !currentKey) {
+            alert('Для ответа нужно авторизоваться!');
+            openModal('authModal');
+            return;
+        }
+        
+        replyParentAuthor = parentAuthor;
+        replyParentPermlink = parentPermlink;
+        
+        document.getElementById('replyTargetText').innerText = postTitle ? `В ответ на пост: "${postTitle}"` : `В ответ на комментарий @${parentAuthor}`;
+        document.getElementById('replyBody').value = `@${parentAuthor}, `;
+        document.getElementById('replyStatus').textContent = '';
+        
+        openModal('replyModal');
+    }
+	
+	function insertEmoji(emoji) {
+    const textarea = document.getElementById('replyBody');
+    if (!textarea) return;
+    
+    // Получаем позицию курсора
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    
+    // Вставляем смайл в текущую позицию
+    textarea.value = text.substring(0, start) + emoji + text.substring(end);
+    
+    // Ставим курсор сразу после вставленного смайла
+    textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
+    
+    // Возвращаем фокус на поле ввода
+    textarea.focus();
+}
+
+    function sendReply() {
+        const body = document.getElementById('replyBody').value.trim();
+        if (!body) return alert('Введите текст ответа');
+
+        const permlink = 're-' + Date.now();
+        const jsonMetadata = JSON.stringify({ tags: ['golos'], app: 'mini-client/1.0' });
+
+        document.getElementById('replyStatus').textContent = 'Отправка...';
+        document.getElementById('replyStatus').style.color = '#333';
+
+        golos.broadcast.comment(currentKey, replyParentAuthor, replyParentPermlink, currentUser, permlink, '', body, jsonMetadata, (err, res) => {
+            if (err) {
+                document.getElementById('replyStatus').textContent = 'Ошибка: ' + (err.message || err);
+                document.getElementById('replyStatus').style.color = 'red';
+            } else {
+                document.getElementById('replyStatus').textContent = 'Успешно отправлено!';
+                document.getElementById('replyStatus').style.color = 'green';
+                setTimeout(() => {
+                    closeModal('replyModal');
+                    loadComments(window.currentPostAuthor, window.currentPostPermlink);
+                }, 1500);
+            }
+        });
+    }
+
+    window.closePost = function() {
+        const container = document.getElementById('postContentContainer');
+        const iframes = container.querySelectorAll('iframe');
+        iframes.forEach(iframe => { iframe.src = 'about:blank'; });
+        container.innerHTML = ''; 
+        closeModal('postModal');
+    };
+	
+        function loadComments(author, permlink) {
+        const commentsContainer = document.getElementById('commentsContainer');
+        if (!commentsContainer) return;
+        
+        commentsContainer.innerHTML = '<p style="color:#777;">Загрузка комментариев...</p>';
+
+        const fetchReplies = (parentAuthor, parentPermlink, depth = 0) => {
+            return new Promise((resolve) => {
+                golos.api.getContentReplies(parentAuthor, parentPermlink, (err, comments) => {
+                    if (err || !comments) {
+                        resolve([]);
+                        return;
+                    }
+                    resolve(comments);
+                });
+            });
+        };
+
+        const renderTree = async (parentAuthor, parentPermlink, container, depth = 0) => {
+            const comments = await fetchReplies(parentAuthor, parentPermlink, depth);
+            
+            if (comments.length === 0 && depth === 0) {
+                container.innerHTML = '<p style="color:#777;">Комментариев пока нет. Будьте первым!</p>';
+                return;
+            }
+
+            const md = window.markdownit({ html: true, linkify: true, breaks: true });
+
+                        for (const comment of comments) {
+                                const commentHtml = renderMarkdownWithMedia(comment.body);
+                const tempCommentDiv = document.createElement('div');
+                tempCommentDiv.innerHTML = commentHtml;
+                
+                // --- НОВОЕ: Обрабатываем iframe и безопасность ---
+                sanitizeHTML(tempCommentDiv);
+                processPostDOM(tempCommentDiv);
+                processMentions(tempCommentDiv);
+                // ------------------------------------------------
+
+                tempCommentDiv.querySelectorAll('a').forEach(link => {
+                    const href = link.getAttribute('href');
+                    if (href && !href.includes('golos.id/') && !href.includes('golos.today/') && !href.includes('golos.io/') && !href.includes('golos.in/')) {
+                        link.setAttribute('target', '_blank');
+                        link.setAttribute('rel', 'noopener noreferrer');
+                    }
+                });
+
+                processMentions(tempCommentDiv);
+                
+                const commentTextHtml = tempCommentDiv.innerHTML;
+                
+                const commentDiv = document.createElement('div');
+                commentDiv.className = 'comment-item';
+                
+                let commentHasVoted = false;
+                let commentVoteWeight = 0;
+                if (currentUser && comment.active_votes) {
+                    const userVote = comment.active_votes.find(v => v.voter === currentUser);
+                    if (userVote) {
+                        commentHasVoted = true;
+                        commentVoteWeight = userVote.percent;
+                    }
+                }
+
+                const commentVoteBtn = (comment.max_accepted_payout === '0.000 GBG')
+                    ? `<span style="font-size:11px; color:#777;">🚫 Без выплат</span>`
+                    : (commentHasVoted 
+                        ? `<button class="vote-btn voted" disabled style="font-size:11px; padding:2px 8px;">✅ ${commentVoteWeight/100}%</button>`
+                        : `<button class="vote-btn" onclick="votePost('${comment.author}', '${comment.permlink}', this)" style="font-size:11px; padding:2px 8px;">👍</button>`);
+
+                commentDiv.innerHTML = `
+                    <div class="comment-header">
+                        <b>@${comment.author}</b> · ${timeAgo(comment.created)}
+                    </div>
+                    <div class="comment-body">${commentTextHtml}</div>
+                    <div style="display:flex; gap:10px;">
+                        <button class="reply-btn" onclick="openReplyModal('${comment.author}', '${comment.permlink}')">Ответить</button>
+                        ${commentVoteBtn}
+                    </div>
+                `;
+                
+                container.appendChild(commentDiv);
+
+                if (comment.children > 0) {
+                    const repliesContainer = document.createElement('div');
+                    repliesContainer.className = 'comment-replies';
+                    commentDiv.appendChild(repliesContainer);
+                    
+                    await renderTree(comment.author, comment.permlink, repliesContainer, depth + 1);
+                }
+            }
+        };
+
+        commentsContainer.innerHTML = '';
+        renderTree(author, permlink, commentsContainer, 0);
+    }
+
+    function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+    function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        function login() {
+        const user = document.getElementById('authUsername').value.trim();
+        const key = document.getElementById('authKey').value.trim();
+        if (!user || !key) return;
+        
+        document.getElementById('authStatus').textContent = 'Проверка...';
+        
+        golos.api.getAccounts([user], (err, res) => {
+            if (err || !res || res.length === 0) { 
+                document.getElementById('authStatus').textContent = 'Аккаунт не найден'; 
+                return; 
+            }
+            
+            currentUser = user; 
+            currentKey = key;
+            
+            try {
+                const profile = JSON.parse(res[0].json_metadata);
+                userSubscriptions = profile.profile?.subscriptions || [];
+            } catch(e) {
+                userSubscriptions = [];
+            }
+
+            // --- ЛОГИКА ЗАПОМИНАНИЯ ---
+            if (document.getElementById('rememberMe').checked) {
+                localStorage.setItem('golos_user', user);
+                localStorage.setItem('golos_key', key);
+            } else {
+                localStorage.removeItem('golos_user');
+                localStorage.removeItem('golos_key');
+            }
+            // --------------------------
+            
+            closeModal('authModal'); 
+			updateAuthUI();
+			updateVotingPower(); 
+			loadMentions();  
+			cleanOldReadMentions();
+			switchTab('new');
+        });
+    }
+
+        function logout() { 
+        currentUser = null; 
+        currentKey = null; 
+        userSubscriptions = [];
+        
+        // Очищаем сохранённые данные
+        localStorage.removeItem('golos_user');
+        localStorage.removeItem('golos_key');
+        
+        updateAuthUI(); 
+        switchTab('new'); 
+    }
+
+    function updateAuthUI() {
+        const actions = document.getElementById('userActions');
+        const navFeed = document.getElementById('nav-feed');
+        const navMyFeed = document.getElementById('nav-myfeed');
+
+        if (currentUser) {
+		actions.innerHTML = `
+    <button class="btn-outline" onclick="openModal('editorModal')">Новый пост</button>
+    <button class="btn-outline" id="mentionsBtn" onclick="openMentionsModal()" style="position:relative; display:none;">
+        🔔
+        <span id="mentionsBadge" style="display:none; position:absolute; top:-5px; right:-5px; background:red; color:white; border-radius:50%; padding:2px 6px; font-size:11px; font-weight:bold;">0</span>
+    </button>
+    <div style="display:flex; align-items:center; gap:5px; margin-left:10px;">
+        <span style="font-size:12px; color:#777;">Заряд:</span>
+        <span id="votingPowerDisplay" style="font-size:13px; font-weight:bold; color:#2b70b8;">--%</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:5px; margin-left:10px;">
+        <span style="font-size:12px; color:#777;">Вес:</span>
+        <select id="voteWeightSelect" onchange="saveVoteWeight(this.value)" style="padding:4px; border-radius:4px; border:1px solid #ccc;">
+            <option value="10000">100%</option>
+            <option value="5000">50%</option>
+            <option value="2500">25%</option>
+            <option value="1000">10%</option>
+            <option value="100">1%</option>
+        </select>
+    </div>
+    <span style="font-weight:bold; color:#2b70b8; margin-left:10px; cursor:pointer;" onclick="openProfile('${currentUser}')">@${currentUser}</span>
+    <button class="btn-outline" onclick="logout()">Выйти</button>
+`;
+            navFeed.style.display = 'inline-block';
+            navMyFeed.style.display = 'inline-block';
+        } else {
+            actions.innerHTML = `<button class="btn-outline" onclick="openModal('authModal')">Авторизация</button>`;
+            navFeed.style.display = 'none';
+            navMyFeed.style.display = 'none';
+        }
+    }
+
+    function updateVotingPower() {
+        if (!currentUser) return;
+        golos.api.getAccounts([currentUser], (err, res) => {
+            if (err || !res || res.length === 0) return;
+            const vp = res[0].voting_power ? (res[0].voting_power / 100).toFixed(2) : '0.00';
+            const el = document.getElementById('votingPowerDisplay');
+            if (el) el.textContent = vp + '%';
+        });
+    }
+
+    function saveVoteWeight(val) {
+        currentVoteWeight = parseInt(val);
+        localStorage.setItem('golos_vote_weight', currentVoteWeight);
+    }
+
+    const savedWeight = localStorage.getItem('golos_vote_weight');
+    if (savedWeight) {
+        currentVoteWeight = parseInt(savedWeight);
+    }
+
+    // Функции редактора
+    function insertMD(before, after) {
+        const textarea = document.getElementById('postBody');
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = textarea.value;
+        const selected = text.substring(start, end);
+        textarea.value = text.substring(0, start) + before + selected + after + text.substring(end);
+        textarea.focus();
+        textarea.selectionStart = start + before.length;
+        textarea.selectionEnd = start + before.length + selected.length;
+    }
+
+        function switchEditorTab(tab) {
+        currentEditorTab = tab;
+        const textarea = document.getElementById('postBody');
+        const preview = document.getElementById('postPreview');
+        const btnEditor = document.getElementById('tabEditorBtn');
+        const btnPreview = document.getElementById('tabPreviewBtn');
+
+        if (tab === 'preview') {
+            // 1. Берем сырой текст
+            let text = textarea.value;
+
+            // 2. Рендерим как чистый Markdown (html: false), чтобы не вводить в заблуждение
+            const md = window.markdownit({ html: true, linkify: true, breaks: true });
+            let htmlBody = md.render(text);
+
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlBody;
+			
+
+            // 3. Применяем ту же логику, что и в openPost
+			sanitizeHTML(tempDiv);
+            processPostDOM(tempDiv);
+            processMentions(tempDiv);
+
+            // 4. Показываем
+            preview.innerHTML = tempDiv.innerHTML;
+            
+            textarea.style.display = 'none';
+            preview.style.display = 'block';
+            btnPreview.classList.add('btn-primary');
+            btnPreview.classList.remove('btn-outline');
+            btnEditor.classList.add('btn-outline');
+            btnEditor.classList.remove('btn-primary');
+        } else {
+            textarea.style.display = 'block';
+            preview.style.display = 'none';
+            btnEditor.classList.add('btn-primary');
+            btnEditor.classList.remove('btn-outline');
+            btnPreview.classList.add('btn-outline');
+            btnPreview.classList.remove('btn-primary');
+        }
+    }
+
+    function publishPost() {
+        const title = document.getElementById('postTitle').value.trim();
+        const body = document.getElementById('postBody').value.trim();
+        const category = document.getElementById('postCategory').value;
+        const extraTagsRaw = document.getElementById('postTags').value.trim();
+        const payoutMode = document.getElementById('postPayout').value;
+        const onlyBlog = document.getElementById('postOnlyBlog').checked;
+        
+        if (!title || !body) return alert('Заполните заголовок и текст');
+
+        let tags = [category];
+        if (extraTagsRaw) {
+            const extraTags = extraTagsRaw.split(',').map(t => t.trim().toLowerCase().replace(/[^a-z0-9-]/g, '')).filter(t => t);
+            tags = [...new Set([...tags, ...extraTags])];
+        }
+        
+        if (onlyBlog) {
+            tags.push('onlyblog');
+        }
+
+        const permlink = 'post-' + Date.now();
+
+	// Извлекаем первую картинку из тела для превью
+		let postImage = null;
+		const imgMatch = body.match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/i);
+		if (imgMatch) {
+			postImage = fixImageUrl(imgMatch[1].trim());
+			} else {
+    // fallback: голый URL картинки
+		const rawImgMatch = body.match(/(?:^|\s)(https?:\/\/[^\s"'<>]+?\.(?:jpg|jpeg|png|gif|webp|svg)(?:\?[^\s"'<>]*)?)(?=\s|$)/i);
+		if (rawImgMatch) {
+			postImage = fixImageUrl(rawImgMatch[1].trim());
+		}
+	}
+
+		const metaObj = { tags: tags, app: 'mini-client/1.0' };
+			if (postImage) metaObj.image = [postImage];
+	const jsonMetadata = JSON.stringify(metaObj);
+        
+        let percent_steem_dollars = 10000;
+        let max_accepted_payout = '1000000.000 GBG';
+        
+        if (payoutMode === '100') {
+            percent_steem_dollars = 0;
+        } else if (payoutMode === '0') {
+            max_accepted_payout = '0.000 GBG';
+        }
+
+        document.getElementById('editorStatus').textContent = 'Отправка поста...';
+        document.getElementById('editorStatus').style.color = '#333';
+        
+        // Шаг 1: отправляем сам пост
+        golos.broadcast.comment(
+            currentKey, 
+            '', category, currentUser, permlink, title, body, jsonMetadata,
+            (err, res) => {
+                if (err) { 
+                    document.getElementById('editorStatus').textContent = 'Ошибка поста: ' + (err.message || err); 
+                    document.getElementById('editorStatus').style.color = 'red'; 
+                    return;
+                }
+                
+                // Шаг 2: если пост ушёл, отправляем настройки выплат
+                document.getElementById('editorStatus').textContent = 'Настройка выплат...';
+                
+                golos.broadcast.commentOptions(
+                    currentKey,
+                    currentUser,
+                    permlink,
+                    max_accepted_payout,
+                    percent_steem_dollars,
+                    true,  // allow_votes
+                    true,  // allow_curation_rewards
+                    [],    // extensions
+                    (err2, res2) => {
+                        if (err2) {
+                            document.getElementById('editorStatus').textContent = 'Пост опубликован, но настройки выплат не применились: ' + (err2.message || err2);
+                            document.getElementById('editorStatus').style.color = 'orange';
+                        } else {
+                            document.getElementById('editorStatus').textContent = 'Успешно опубликовано!';
+                            document.getElementById('editorStatus').style.color = 'green';
+                        }
+                        
+                        document.getElementById('postTitle').value = ''; 
+                        document.getElementById('postBody').value = '';
+                        document.getElementById('postTags').value = '';
+                        document.getElementById('postOnlyBlog').checked = false;
+                        document.getElementById('postPayout').value = '50';
+                        switchEditorTab('editor');
+                        setTimeout(() => closeModal('editorModal'), 3000); 
+                    }
+                );
+            }
+        );
+    }
+
+    // ========== ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ ==========
+
+    window.openProfile = function(username) {
+        openModal('profileModal');
+        const container = document.getElementById('profileContent');
+        container.innerHTML = '<p>Загрузка профиля...</p>';
+
+        profileCurrentUsername = username;
+        profileLastPost = null;
+        document.getElementById('loadMoreProfileBtn').style.display = 'none';
+
+        golos.api.getAccounts([username], (err, accounts) => {
+            if (err || !accounts || accounts.length === 0) {
+                container.innerHTML = '<p>Не удалось загрузить профиль.</p>';
+                return;
+            }
+
+            const acc = accounts[0];
+
+            let profileMeta = {};
+try {
+    const meta = JSON.parse(acc.json_metadata);
+    profileMeta = meta.profile || {};
+} catch (e) {}
+
+// --- НОВАЯ ЛОГИКА АВАТАРКИ ---
+let avatar = profileMeta.profile_image;
+
+if (avatar) {
+    // Прогоняем через fixImageUrl, чтобы заменить старый домен
+    avatar = fixImageUrl(avatar);
+} else {
+    // Фолбэк: если аватарки нет — генерируем SVG с первой буквой
+    avatar = `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23ddd%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2255%22 font-size=%2240%22 text-anchor=%22middle%22 fill=%22%23999%22>${username[0].toUpperCase()}</text></svg>`;
+}
+
+const rep = formatReputation(acc.reputation);
+
+            const fallbackAvatar = `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect fill=%22%23ddd%22 width=%22100%22 height=%22100%22/><text x=%2250%22 y=%2255%22 font-size=%2240%22 text-anchor=%22middle%22 fill=%22%23999%22>${username[0].toUpperCase()}</text></svg>`;
+
+            const renderProfile = (isFollowing) => {
+                let followBtnHTML = '';
+                if (currentUser && currentUser !== username) {
+                    followBtnHTML = isFollowing
+                        ? `<button class="btn-outline" onclick="toggleFollow('${username}', false)">Отписаться</button>`
+                        : `<button class="btn-primary" onclick="toggleFollow('${username}', true)">Подписаться</button>`;
+                } else if (!currentUser) {
+                    followBtnHTML = `<button class="btn-outline" onclick="closeModal('profileModal'); openModal('authModal');">Войти, чтобы подписаться</button>`;
+                }
+
+                container.innerHTML = `
+                    <div class="profile-header">
+                        <img src="${avatar}" class="profile-avatar" onerror="this.onerror=null;this.src='${fallbackAvatar}'">
+                        <div class="profile-info">
+                            <h2>@${username}</h2>
+                            <div class="profile-reputation">⭐ Репутация: ${rep}</div>
+                            <div class="profile-actions">
+                                ${followBtnHTML}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="profile-posts-title">📝 Последние посты</div>
+                    <div id="profilePostsContainer"><p style="color:#777;">Загрузка постов...</p></div>
+                `;
+
+                loadUserPosts(username);
+            };
+
+            if (currentUser && currentUser !== username) {
+                golos.api.getFollowing(currentUser, username, 'blog', 1, (errF, following) => {
+                    const isFollowing = !errF && following && following.length > 0 && following[0].following === username;
+                    renderProfile(isFollowing);
+                });
+            } else {
+                renderProfile(false);
+            }
+        });
+    };
+
+    function loadUserPosts(username, startPermlink = '') {
+        const container = document.getElementById('profilePostsContainer');
+        const btn = document.getElementById('loadMoreProfileBtn');
+        if (!container) return;
+
+        if (!startPermlink) {
+            container.innerHTML = '<p style="color:#777;">Загрузка постов...</p>';
+            btn.style.display = 'none';
+        } else {
+            btn.textContent = 'Загрузка...';
+            btn.disabled = true;
+        }
+
+        golos.api.getDiscussionsByAuthorBeforeDate(
+            username, startPermlink, new Date().toISOString().split('.')[0], 10,
+            (err, posts) => {
+                if (err || !posts) {
+                    if (!startPermlink) container.innerHTML = '<p style="color:#777;">Ошибка загрузки.</p>';
+                    btn.textContent = 'Загрузить ещё';
+                    btn.disabled = false;
+                    return;
+                }
+
+                if (posts.length === 0) {
+                    if (!startPermlink) {
+                        container.innerHTML = '<p style="color:#777;">Постов пока нет.</p>';
+                    }
+                    btn.style.display = 'none';
+                    return;
+                }
+				
+				if (startPermlink && posts.length > 0 && posts[0].permlink === startPermlink) {
+    posts.shift(); 
+}
+
+                if (!startPermlink) {
+                    container.innerHTML = '';
+                }
+
+                const html = posts.map(p => `
+                    <div class="profile-post-item" onclick="closeModal('profileModal'); openPost('${p.author}', '${p.permlink}');">
+                        <h4>${p.title || '(без заголовка)'}</h4>
+                        <div class="meta">${timeAgo(p.created)} · 💰 ${formatPayout(p)} · 💬 ${p.children}</div>
+                    </div>
+                `).join('');
+                
+                container.insertAdjacentHTML('beforeend', html);
+
+                profileLastPost = posts[posts.length - 1];
+
+               if (posts.length >=10) {
+                    btn.style.display = 'block'; 
+                } /*else {                       // закомментировали, 
+                    btn.style.display = 'none';  //чтоб не ограничивать
+                }*/                              //подгрузку списка
+                
+                btn.textContent = 'Загрузить ещё';
+                btn.disabled = false;
+            }
+        );
+    }
+
+    function loadMoreUserPosts() {
+        if (!profileCurrentUsername || !profileLastPost) return;
+        loadUserPosts(profileCurrentUsername, profileLastPost.permlink);
+    }
+
+    function toggleFollow(targetUser, subscribe) {
+        if (!currentUser || !currentKey) {
+            alert('Нужно авторизоваться!');
+            return;
+        }
+
+        const what = subscribe ? ['blog'] : [];
+        const json = JSON.stringify(['follow', {
+            follower: currentUser,
+            following: targetUser,
+            what: what
+        }]);
+
+        golos.broadcast.customJson(
+            currentKey,
+            [],
+            [currentUser],
+            'follow',
+            json,
+            (err, res) => {
+                if (err) {
+                    alert('Ошибка: ' + (err.message || err));
+                    return;
+                }
+
+                if (subscribe) {
+                    if (!userSubscriptions.some(s => s[0] === targetUser && s[1] === 'blog')) {
+                        userSubscriptions.push([targetUser, 'blog']);
+                    }
+                } else {
+                    userSubscriptions = userSubscriptions.filter(s => 
+                        !(s[0] === targetUser && s[1] === 'blog')
+                    );
+                }
+
+                openProfile(targetUser);
+                alert(subscribe ? 'Вы подписались!' : 'Вы отписались!');
+            }
+        );
+    }
+
+    // ========== ДЕЛЕГИРОВАНИЕ КЛИКОВ ==========
+
+    document.addEventListener('click', function(e) {
+        const link = e.target.closest('a');
+        if (!link) return;
+        if (!link.closest('#postContentContainer')) return;
+        const href = link.getAttribute('href');
+        if (!href) return;
+        if (
+            href.includes('golos.id/') ||
+            href.includes('golos.today/') ||
+            href.includes('golos.io/') ||
+            href.includes('golos.in/')
+        ) {
+            const match = href.match(/@([^/]+)\/([^?#]+)/);
+            if (match) {
+                e.preventDefault();
+                closePost();
+                openPost(match[1], match[2]);
+            }
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+    const el = e.target.closest('.mention-link, b, span');
+    if (!el) return;
+    if (el.closest('a')) return; 
+
+    const text = el.textContent.trim();
+    if (!text.startsWith('@')) return;
+    
+    let cleanText = text.substring(1); // убираем @
+    
+    // Если есть слэш — значит, это ссылка на пост @author/permlink
+    if (cleanText.includes('/')) {
+        const parts = cleanText.split('/');
+        if (parts.length >= 2) {
+            const author = parts[0];
+            const permlink = parts[1];
+            
+            // Проверка на валидность (базовая)
+            if (author && permlink && !permlink.includes(' ') && !permlink.includes(',')) {
+                e.preventDefault();
+                e.stopPropagation();
+                closePost(); // На всякий случай закрываем текущий пост, если открыт
+                openPost(author, permlink); // Открываем пост
+                return;
+            }
+        }
+    }
+    
+    // Иначе (нет слэша) — это обычное упоминание, открываем профиль
+    if (!cleanText || cleanText.includes(' ') || cleanText.includes(',')) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    openProfile(cleanText);
+});
+
+// ========== УПОМИНАНИЯ ==========
+
+// Получить список прочитанных
+function getReadMentions() {
+    try {
+        return JSON.parse(localStorage.getItem('golos_read_mentions') || '{}');
+    } catch (e) { return {}; }
+}
+
+// Отметить как прочитанное
+function markMentionAsRead(author, permlink) {
+    const read = getReadMentions();
+    read[`${author}/${permlink}`] = Date.now();
+    localStorage.setItem('golos_read_mentions', JSON.stringify(read));
+}
+
+// Очистка старых записей (старше 7 дней)
+function cleanOldReadMentions() {
+    const read = getReadMentions();
+    const now = Date.now();
+    const oneWeek = 7 * 24 * 60 * 60 * 1000;
+    let changed = false;
+    for (const key in read) {
+        if (now - read[key] > oneWeek) {
+            delete read[key];
+            changed = true;
+        }
+    }
+    if (changed) localStorage.setItem('golos_read_mentions', JSON.stringify(read));
+}
+
+// Проверка, включена ли функция
+function isMentionsEnabled() {
+    return localStorage.getItem('golos_mentions_enabled') !== 'false'; // по умолчанию включено
+}
+
+// Получить период (в часах)
+function getMentionsPeriod() {
+    const p = localStorage.getItem('golos_mentions_period');
+    return p ? parseInt(p) : 24; // по умолчанию 24 часа
+}
+
+let currentMentionsList = []; // Храним найденные упоминания для модалки
+
+function loadMentions() {
+    const btn = document.getElementById('mentionsBtn');
+    if (!currentUser) {
+        if (btn) btn.style.display = 'none';
+        return;
+    }
+
+    // Кнопку всегда показываем для авторизованного пользователя
+    if (btn) btn.style.display = 'inline-block';
+
+    if (!isMentionsEnabled()) {
+        const badge = document.getElementById('mentionsBadge');
+        if (badge) badge.style.display = 'none';
+        return;
+    }
+
+    const periodHours = getMentionsPeriod();
+    const dateLimit = new Date(Date.now() - periodHours * 60 * 60 * 1000);
+
+    golos.api.getAccountHistory(currentUser, -1, 100, (err, result) => {
+        if (err || !result) {
+            console.error('Ошибка загрузки истории:', err);
+            return;
+        }
+
+        const readList = getReadMentions();
+        let unreadCount = 0;
+        currentMentionsList = [];
+
+        result.forEach(item => {
+            const opData = item[1];
+            const opType = opData.op[0];
+            const opValue = opData.op[1];
+
+            // Нас интересуют только комментарии (посты и ответы)
+            if (opType !== 'comment') return;
+
+            const postAuthor = opValue.author;
+            const postPermlink = opValue.permlink;
+            const parentAuthor = opValue.parent_author;
+            const body = opValue.body || '';
+            const created = opData.timestamp;
+
+            // Фильтр по дате
+            const postDate = new Date(created + 'Z');
+            if (postDate < dateLimit) return;
+
+            // Пропускаем собственные посты
+            if (postAuthor === currentUser) return;
+
+            // Проверяем, есть ли @currentUser в тексте
+            const mentionRegex = new RegExp(`@${currentUser}\\b`, 'i');
+            
+            // Также считаем упоминанием, если это ответ на наш пост (parent_author === currentUser)
+            const isReplyToMe = parentAuthor === currentUser;
+
+            if (mentionRegex.test(body) || isReplyToMe) {
+                const id = `${postAuthor}/${postPermlink}`;
+                const isRead = !!readList[id];
+                if (!isRead) unreadCount++;
+
+                currentMentionsList.push({
+                    author: postAuthor,
+                    permlink: postPermlink,
+                    title: opValue.title || '(Комментарий)',
+                    body: body,
+                    created: created,
+                    isRead: isRead
+                });
+            }
+        });
+
+        // Сортируем по дате (новые сверху)
+        currentMentionsList.sort((a, b) => new Date(b.created) - new Date(a.created));
+
+        // Обновляем UI
+        const badge = document.getElementById('mentionsBadge');
+        if (currentMentionsList.length > 0) {
+            if (unreadCount > 0 && badge) {
+                badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+                badge.style.display = 'inline-block';
+            } else if (badge) {
+                badge.style.display = 'none';
+            }
+        } else if (badge) {
+            badge.style.display = 'none';
+        }
+    });
+}
+
+function updateMentionsBadgeUI() {
+    const badge = document.getElementById('mentionsBadge');
+    if (!badge) return;
+    
+    const unreadCount = currentMentionsList.filter(m => !m.isRead).length;
+    if (unreadCount > 0) {
+        badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+        badge.style.display = 'inline-block';
+    } else {
+        badge.style.display = 'none';
+    }
+}
+
+function markAllMentionsAsRead() {
+    if (!currentMentionsList || currentMentionsList.length === 0) return;
+    
+    const read = getReadMentions();
+    currentMentionsList.forEach(m => {
+        if (!m.isRead) {
+            m.isRead = true;
+            read[`${m.author}/${m.permlink}`] = Date.now();
+        }
+    });
+    localStorage.setItem('golos_read_mentions', JSON.stringify(read));
+    
+    // Обновляем UI
+    updateMentionsBadgeUI();
+    
+    // Перерисовываем список (чтобы они стали серыми)
+    openMentionsModal(); 
+}
+
+        // Проверяем, есть ли сохранённый аккаунт при загрузке
+    const savedUser = localStorage.getItem('golos_user');
+    const savedKey = localStorage.getItem('golos_key');
+
+    if (savedUser && savedKey) {
+        // Автоматически восстанавливаем сессию
+        currentUser = savedUser;
+        currentKey = savedKey;
+        
+        // Подтягиваем подписки и заряд
+        golos.api.getAccounts([savedUser], (err, res) => {
+            if (!err && res && res.length > 0) {
+                try {
+                    const profile = JSON.parse(res[0].json_metadata);
+                    userSubscriptions = profile.profile?.subscriptions || [];
+                } catch(e) { userSubscriptions = []; }
+            }
+            updateAuthUI();
+			updateVotingPower();
+			loadMentions();     
+			cleanOldReadMentions(); 
+			switchTab('new');
+        });
+    } else {
+        // Если нет — обычная загрузка
+        updateAuthUI();
+        switchTab('new');
+    }
+    
+    // Заполняем селект категорий (это можно оставить вне условия)
+    setTimeout(() => {
+        const select = document.getElementById('voteWeightSelect');
+        if (select) select.value = currentVoteWeight;
+        
+        const categorySelect = document.getElementById('postCategory');
+        if (categorySelect) {
+            categories.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat.value;
+                opt.textContent = cat.label;
+                categorySelect.appendChild(opt);
+            });
+        }
+    }, 500);
+</script>
+</body>
+</html>
