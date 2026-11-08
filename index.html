@@ -154,6 +154,11 @@
     background: #e1e8f0;
     transform: scale(1.1);
 }
+
+.share-option:hover {
+    background: #f0f4f8;
+    color: #2b70b8 !important;
+}
 </style>
 </head>
 <body>
@@ -224,8 +229,9 @@
         <div style="margin-top: 15px; flex-shrink: 0; padding: 15px; background: #f9f9f9; border-radius: 8px; border: 1px solid #eee;">
             <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <label style="font-size: 14px; font-weight: bold; color: #555;">💰 Выплаты:</label>
-                    <select id="postPayout" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+				
+<label for="postPayout" style="font-size: 14px; font-weight: bold; color: #555; cursor: pointer;">💰 Выплаты:</label>                   
+				   <select id="postPayout" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
                         <option value="50">50% / 50% (SP + GBG)</option>
                         <option value="100">100% в Силу Голоса (SP)</option>
                         
@@ -317,6 +323,13 @@
     </div>
 </div>
 
+<div id="shareMenu" style="display: none; position: fixed; background: #fff; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 3000; padding: 5px 0; min-width: 160px;">
+    <div onclick="copyPostLink('blockchain')" class="share-option" style="padding: 8px 15px; cursor: pointer; font-size: 14px; color: #333; transition: 0.2s;">⛓ Блокчейн</div>
+    <div onclick="copyPostLink('golos.id')" class="share-option" style="padding: 8px 15px; cursor: pointer; font-size: 14px; color: #333; transition: 0.2s;">golos.id</div>
+    <div onclick="copyPostLink('golos.today')" class="share-option" style="padding: 8px 15px; cursor: pointer; font-size: 14px; color: #333; transition: 0.2s;">golos.today</div>
+    <div onclick="copyPostLink('golos.in')" class="share-option" style="padding: 8px 15px; cursor: pointer; font-size: 14px; color: #333; transition: 0.2s;">golos.in</div>
+</div>
+
 <script>
     golos.config.set('websocket', 'wss://api.aleksw.space/ws');
     
@@ -327,6 +340,7 @@
     let profileCurrentUsername = null;
     let profileLastPost = null;
     let currentEditorTab = 'editor';
+	let editingPost = null; // Если null — создаем новый, иначе — редактируем
 
     // Категории
     const categories = [
@@ -370,10 +384,10 @@
         { value: 'ru--prochee', label: 'Прочее' },
         { value: 'en', label: 'English' }
     ];
-
-function copyPostId(author, permlink, btnElement) {
-    // Формируем "блокчейн-нативный" идентификатор
-    const textToCopy = `@${author}/${permlink}`;
+/*
+	function copyPostId(author, permlink, btnElement) {
+		// Формируем "блокчейн-нативный" идентификатор
+		const textToCopy = `@${author}/${permlink}`;
     
     // Используем современный API буфера обмена
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -403,6 +417,64 @@ function copyPostId(author, permlink, btnElement) {
         prompt('Скопируйте ссылку на пост вручную:', textToCopy);
     }
 }
+*/
+// Переменные для хранения данных текущего поста
+let shareCurrentAuthor = null;
+let shareCurrentPermlink = null;
+
+// Функция показа меню
+function showShareMenu(event, author, permlink) {
+    shareCurrentAuthor = author;
+    shareCurrentPermlink = permlink;
+    
+    const menu = document.getElementById('shareMenu');
+    
+    // Позиционируем меню рядом с кнопкой
+    const rect = event.target.getBoundingClientRect();
+    menu.style.left = rect.left + 'px';
+    menu.style.top = (rect.bottom + 5) + 'px';
+    
+    // Показываем
+    menu.style.display = 'block';
+    
+    // Закрываем меню при клике в любом другом месте
+    setTimeout(() => {
+        document.addEventListener('click', closeShareMenu);
+    }, 10);
+}
+
+function closeShareMenu() {
+    document.getElementById('shareMenu').style.display = 'none';
+    document.removeEventListener('click', closeShareMenu);
+}
+
+// Функция копирования с учетом выбора
+function copyPostLink(service) {
+    if (!shareCurrentAuthor || !shareCurrentPermlink) return;
+    
+    let url = '';
+    if (service === 'blockchain') {
+        url = `@${shareCurrentAuthor}/${shareCurrentPermlink}`;
+    } else {
+        url = `https://${service}/@${shareCurrentAuthor}/${shareCurrentPermlink}`;
+    }
+    
+    // Копируем в буфер
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(() => {
+            // Визуальный отклик (можно просто alert, но лучше временно изменить кнопку)
+            const btn = event.target; // если бы мы передавали event
+            alert(`Ссылка скопирована:\n${url}`);
+        }).catch(err => {
+            prompt('Скопируйте ссылку вручную:', url);
+        });
+    } else {
+        prompt('Скопируйте ссылку вручную:', url);
+    }
+    
+    // Закрываем меню
+    closeShareMenu();
+}
 
     function timeAgo(dateString) {
         const date = new Date(dateString + 'Z'); const now = new Date();
@@ -412,11 +484,18 @@ function copyPostId(author, permlink, btnElement) {
         const hours = Math.floor(minutes / 60); if (hours < 24) return hours + ' ч. назад';
         return Math.floor(hours / 24) + ' дн. назад';
     }
+	
+	function escapeAttr(str) {
+    if (!str) return '';
+    // Экранируем одинарные кавычки для onclick, двойные — для HTML-атрибутов
+    return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, ' ').replace(/\r/g, '');
+}
 
     function getPreviewImage(post) {
-    // 1. Смотрим в метаданные
+	//1. Смотрим метаданные
     try {
         const meta = JSON.parse(post.json_metadata);
+        // Если теги битые, мы всё равно ищем картинку
         if (meta.image && meta.image.length > 0) return fixImageUrl(meta.image[0]);
     } catch (e) {}
 
@@ -783,7 +862,7 @@ function copyPostId(author, permlink, btnElement) {
                     <span>💬 ${post.children}</span>
                     ${voteBtnHTML}
                 </div>
-                <button class="read-btn" onclick="openPost('${post.author}', '${post.permlink}')">Читать >></button>
+                <button class="read-btn" onclick="openPost('${escapeAttr(post.author)}', '${escapeAttr(post.permlink)}')">Читать >></button>
             </div>
         `;
         document.getElementById('app').appendChild(card);
@@ -1026,12 +1105,31 @@ function saveMentionsPeriod(val) {
                 }
             }
             
-                        const postVoteBtnHTML = (post.max_accepted_payout === '0.000 GBG')
+             const postVoteBtnHTML = (post.max_accepted_payout === '0.000 GBG')
                 ? `<span style="font-size:14px; color:#777; font-weight:bold; display:inline-flex; align-items:center;">🚫 Выплаты отклонены</span>`
                 : (postHasVoted 
                     ? `<button class="vote-btn voted" style="font-size: 14px; padding: 8px 15px;" disabled>✅ Вы проголосовали (${postVoteWeight / 100}%)</button>`
                     : `<button class="vote-btn" style="font-size: 14px; padding: 8px 15px;" onclick="votePost('${post.author}', '${post.permlink}', this)">👍 Аповут</button>`);
             
+			            let authorButtons = '';
+            if (currentUser === post.author) {
+			
+			// Проверяем, можно ли удалить
+                const hasVotes = post.net_votes > 0;
+                const hasComments = post.children > 0;
+                const isPayoutStarted = new Date(post.cashout_time + 'Z') < new Date();
+                const canDelete = !hasVotes && !hasComments && !isPayoutStarted;
+
+                // Кнопка "Редактировать" (обычно разрешена, если выплаты не начались)
+                // В некоторых клиентах редактировать можно только до выплат
+                const canEdit = true //!isPayoutStarted;  или true, если разрешить всегда
+			
+                authorButtons = `
+                    ${canEdit ? `<button class="reply-btn" onclick="editPost('${escapeAttr(post.author)}', '${escapeAttr(post.permlink)}')" style="border-color: #f39c12; color: #f39c12;">✏️ Редактировать</button>` : ''}
+                    ${canDelete ? `<button class="reply-btn" onclick="deletePost('${escapeAttr(post.author)}', '${escapeAttr(post.permlink)}')" style="border-color: #c0392b; color: #c0392b;">🗑 Удалить</button>` : ''}
+                `;
+            }
+
 			container.innerHTML = `
                 <h1>${post.title}</h1>
                 <div class="post-meta">
@@ -1041,19 +1139,24 @@ function saveMentionsPeriod(val) {
                 <div class="content">${tempDiv.innerHTML}</div>
                 
                 <div class="post-actions" style="margin-top: 20px; display: flex; gap: 15px; border-top: 1px solid #eee; padding-top: 15px;">
-                    ${postVoteBtnHTML}
-                    <button class="reply-btn" style="font-size: 14px; padding: 8px 15px;" onclick="openReplyModal('${post.author}', '${post.permlink}', '${post.title}')">💬 Ответить на пост</button>
-					<button class="reply-btn" style="font-size: 14px; padding: 8px 15px;" onclick="copyPostId('${post.author}', '${post.permlink}', this)">🔗 Поделиться</button>
+					${postVoteBtnHTML}
+				<button class="reply-btn" style="font-size: 14px; padding: 8px 15px;" onclick="openReplyModal('${post.author}', '${post.permlink}', '${post.title}')">💬 Ответить на пост</button>
+<button class="reply-btn" style="font-size: 14px; padding: 8px 15px;" onclick="showShareMenu(event, '${escapeAttr(post.author)}', '${escapeAttr(post.permlink)}')">🔗 Поделиться</button>
+${authorButtons}
                 </div>
-
-                <div class="comments-section" style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
+				
+				<div class="comments-section" style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;">
                     <h3 style="margin-top:0;">Комментарии (${post.children})</h3>
                     <div id="commentsContainer"></div>
                 </div>
+				
             `;
+			
+
             
             loadComments(post.author, post.permlink);
-            
+
+			
             document.querySelector('#postModal .modal-content').scrollTop = 0;
         });
     };
@@ -1097,9 +1200,133 @@ function saveMentionsPeriod(val) {
     textarea.focus();
 }
 
-    function sendReply() {
+    function resetEditorUI() {
+        document.getElementById('postTitle').style.display = 'block';
+        document.getElementById('postCategory').style.display = 'block';
+        document.getElementById('postTags').style.display = 'block';
+        document.querySelector('#editorModal h3').textContent = 'Новый пост';
+        // Очищаем поля, если нужно
+        // document.getElementById('postTitle').value = '';
+        // document.getElementById('postBody').value = '';
+    }
+
+
+        window.editPost = function(author, permlink) {
+        // 1. Сначала сбрасываем UI (возвращаем заголовок и категорию)
+        resetEditorUI();
+        
+        // 2. Загружаем пост
+        golos.api.getContent(author, permlink, (err, post) => {
+            if (err || !post) return alert('Ошибка загрузки поста');
+
+            // 3. Заполняем редактор
+            document.getElementById('postTitle').value = post.title;
+            document.getElementById('postBody').value = post.body;
+            
+            // 4. Парсим теги
+            let tags = [];
+            try {
+                const meta = JSON.parse(post.json_metadata);
+                tags = meta.tags || [];
+            } catch(e) {}
+            
+            const category = tags[0] || 'golos';
+            const extraTags = tags.slice(1).join(', ');
+            
+            document.getElementById('postCategory').value = category;
+            document.getElementById('postTags').value = extraTags;
+
+            // 5. Запоминаем, что редактируем (isComment: false)
+            editingPost = {
+                author: post.author,
+                permlink: post.permlink,
+                parent_author: post.parent_author,
+                parent_permlink: post.parent_permlink,
+                isComment: false // <--- Явно указываем, что это пост
+            };
+
+            // 6. Открываем редактор
+            closePost();
+            openModal('editorModal');
+            switchEditorTab('editor');
+        });
+    };
+
+        window.deletePost = function(author, permlink) {
+        if (!confirm('Вы уверены, что хотите удалить этот пост?')) return;
+
+        golos.broadcast.deleteComment(currentKey, author, permlink, (err, res) => {
+            if (err) {
+                const msg = err.message || JSON.stringify(err);
+                if (msg.includes('Cannot delete a comment with replies')) {
+                    alert('Невозможно удалить пост, так как под ним есть комментарии.');
+                } else if (msg.includes('business logic error') || msg.includes('Cannot delete')) {
+                    alert('Невозможно удалить пост. Скорее всего, он уже получил выплаты или голоса.');
+                } else {
+                    alert('Ошибка удаления: ' + msg);
+                }
+            } else {
+                alert('Пост удален!');
+                closePost();
+                switchTab(currentTab);
+            }
+        });
+    };
+
+        window.editComment = function(author, permlink) {
+        golos.api.getContent(author, permlink, (err, post) => {
+            if (err || !post) return alert('Ошибка загрузки комментария');
+            
+            document.getElementById('postTitle').value = ''; // Заголовок не нужен
+            document.getElementById('postBody').value = post.body;
+            
+            editingPost = {
+                author: post.author,
+                permlink: post.permlink,
+                parent_author: post.parent_author,
+                parent_permlink: post.parent_permlink,
+                isComment: true 
+            };
+
+            closePost();
+            openModal('editorModal');
+            
+            // Скрываем поле заголовка и категории для комментария
+            document.getElementById('postTitle').style.display = 'none';
+            document.getElementById('postCategory').style.display = 'none';
+            document.getElementById('postTags').style.display = 'none';
+            // Меняем заголовок модалки
+            document.querySelector('#editorModal h3').textContent = 'Редактирование комментария';
+
+            switchEditorTab('editor');
+        });
+    };
+
+    window.deleteComment = function(author, permlink) {
+        if (!confirm('Удалить комментарий?')) return;
+        golos.broadcast.deleteComment(currentKey, author, permlink, (err, res) => {
+            if (err) alert('Ошибка: ' + (err.message || err));
+            else {
+                alert('Комментарий удален!');
+                // Перезагружаем комментарии
+                loadComments(window.currentPostAuthor, window.currentPostPermlink);
+            }
+        });
+    };
+
+
+
+        function sendReply() {
         const body = document.getElementById('replyBody').value.trim();
         if (!body) return alert('Введите текст ответа');
+
+        // Находим кнопку "Отправить"
+        const submitBtn = document.querySelector('#replyModal .btn-primary');
+        const originalText = submitBtn.innerHTML;
+        
+        // Блокируем кнопку
+        submitBtn.innerHTML = 'Отправка...';
+        submitBtn.disabled = true;
 
         const permlink = 're-' + Date.now();
         const jsonMetadata = JSON.stringify({ tags: ['golos'], app: 'mini-client/1.0' });
@@ -1108,6 +1335,10 @@ function saveMentionsPeriod(val) {
         document.getElementById('replyStatus').style.color = '#333';
 
         golos.broadcast.comment(currentKey, replyParentAuthor, replyParentPermlink, currentUser, permlink, '', body, jsonMetadata, (err, res) => {
+            // Разблокируем кнопку в любом случае (успех или ошибка)
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+
             if (err) {
                 document.getElementById('replyStatus').textContent = 'Ошибка: ' + (err.message || err);
                 document.getElementById('replyStatus').style.color = 'red';
@@ -1131,8 +1362,15 @@ function saveMentionsPeriod(val) {
     };
 	
         function loadComments(author, permlink) {
+
+		
         const commentsContainer = document.getElementById('commentsContainer');
+		
+
+
         if (!commentsContainer) return;
+		
+
         
         commentsContainer.innerHTML = '<p style="color:#777;">Загрузка комментариев...</p>';
 
@@ -1149,7 +1387,9 @@ function saveMentionsPeriod(val) {
         };
 
         const renderTree = async (parentAuthor, parentPermlink, container, depth = 0) => {
-            const comments = await fetchReplies(parentAuthor, parentPermlink, depth);
+         
+			
+			const comments = await fetchReplies(parentAuthor, parentPermlink, depth);
             
             if (comments.length === 0 && depth === 0) {
                 container.innerHTML = '<p style="color:#777;">Комментариев пока нет. Будьте первым!</p>';
@@ -1159,7 +1399,8 @@ function saveMentionsPeriod(val) {
             const md = window.markdownit({ html: true, linkify: true, breaks: true });
 
                         for (const comment of comments) {
-                                const commentHtml = renderMarkdownWithMedia(comment.body);
+						
+                const commentHtml = renderMarkdownWithMedia(comment.body);
                 const tempCommentDiv = document.createElement('div');
                 tempCommentDiv.innerHTML = commentHtml;
                 
@@ -1200,14 +1441,29 @@ function saveMentionsPeriod(val) {
                         ? `<button class="vote-btn voted" disabled style="font-size:11px; padding:2px 8px;">✅ ${commentVoteWeight/100}%</button>`
                         : `<button class="vote-btn" onclick="votePost('${comment.author}', '${comment.permlink}', this)" style="font-size:11px; padding:2px 8px;">👍</button>`);
 
-                commentDiv.innerHTML = `
+                                 let commentAuthorButtons = '';
+                if (currentUser === comment.author) {
+                    const canDeleteComment = comment.children === 0; // Удалить можно только если нет ответов
+                    // Редактировать комментарий можно всегда (или до выплат)
+                    
+                    commentAuthorButtons = `
+                        <button class="reply-btn" onclick="editComment('${escapeAttr(comment.author)}', '${escapeAttr(comment.permlink)}')" style="border-color: #f39c12; color: #f39c12; font-size:11px;">✏️ Ред.</button>
+                        ${canDeleteComment ? `<button class="reply-btn" onclick="deleteComment('${escapeAttr(comment.author)}', '${escapeAttr(comment.permlink)}')" style="border-color: #c0392b; color: #c0392b; font-size:11px;">🗑 Удал.</button>` : ''}
+                    `;
+                }
+
+               
+				
+				
+				commentDiv.innerHTML = `
                     <div class="comment-header">
                         <b>@${comment.author}</b> · ${timeAgo(comment.created)}
                     </div>
                     <div class="comment-body">${commentTextHtml}</div>
                     <div style="display:flex; gap:10px;">
-                        <button class="reply-btn" onclick="openReplyModal('${comment.author}', '${comment.permlink}')">Ответить</button>
+                       <button class="reply-btn" onclick="openReplyModal('${escapeAttr(comment.author)}', '${escapeAttr(comment.permlink)}')">Ответить</button>
                         ${commentVoteBtn}
+						${commentAuthorButtons}
                     </div>
                 `;
                 
@@ -1291,9 +1547,11 @@ function saveMentionsPeriod(val) {
         const navMyFeed = document.getElementById('nav-myfeed');
 
         if (currentUser) {
-		actions.innerHTML = `
-    <button class="btn-outline" onclick="openModal('editorModal')">Новый пост</button>
-    <button class="btn-outline" id="mentionsBtn" onclick="openMentionsModal()" style="position:relative; display:none;">
+		actions.innerHTML = 
+		`
+<button class="btn-outline" onclick="resetEditorUI(); openModal('editorModal');">Новый пост</button>
+    
+	<button class="btn-outline" id="mentionsBtn" onclick="openMentionsModal()" style="position:relative; display:none;">
         🔔
         <span id="mentionsBadge" style="display:none; position:absolute; top:-5px; right:-5px; background:red; color:white; border-radius:50%; padding:2px 6px; font-size:11px; font-weight:bold;">0</span>
     </button>
@@ -1399,7 +1657,27 @@ function saveMentionsPeriod(val) {
         }
     }
 
-    function publishPost() {
+        function transliterate(str) {
+        const ru = 'щ ш ч ц й ё э ю я х ж а б в г д е з и к л м н о п р с т у ф ъ ы ь ґ є і ї'.split(' ');
+        const en = 'shch sh ch cz ij yo ye yu ya kh zh a b v g d e z i k l m n o p r s t u f xx y x g e i i'.split(' ');
+        let result = '';
+        for (let i = 0; i < str.length; i++) {
+            const char = str[i].toLowerCase();
+            const index = ru.indexOf(char);
+            if (index !== -1) {
+                result += en[index];
+            } else {
+                result += char;
+            }
+        }
+        return result;
+    }
+
+        function publishPost() {
+		
+		if(!editingPost)resetEditorUI();
+		
+		
         const title = document.getElementById('postTitle').value.trim();
         const body = document.getElementById('postBody').value.trim();
         const category = document.getElementById('postCategory').value;
@@ -1407,94 +1685,129 @@ function saveMentionsPeriod(val) {
         const payoutMode = document.getElementById('postPayout').value;
         const onlyBlog = document.getElementById('postOnlyBlog').checked;
         
-        if (!title || !body) return alert('Заполните заголовок и текст');
+        if (!editingPost?.isComment && !title) {
+            return alert('Заполните заголовок');
+        }
+        if (!body) {
+            return alert('Заполните текст');
+        }
 
+        // --- ОБРАБОТКА ТЕГОВ (как было) ---
         let tags = [category];
         if (extraTagsRaw) {
-            const extraTags = extraTagsRaw.split(',').map(t => t.trim().toLowerCase().replace(/[^a-z0-9-]/g, '')).filter(t => t);
+            const extraTags = extraTagsRaw.split(',').map(t => {
+                let tag = t.trim().toLowerCase();
+                if (/[а-яё]/i.test(tag)) {
+                    tag = 'ru--' + transliterate(tag).replace(/[^a-z0-9-]/g, '');
+                } else {
+                    tag = tag.replace(/[^a-z0-9-]/g, '');
+                }
+                return tag;
+            }).filter(t => t);
             tags = [...new Set([...tags, ...extraTags])];
         }
+        tags = tags.filter(t => t && t !== '-' && t.length > 1);
+        if (onlyBlog) tags.push('onlyblog');
+
+        // --- СБОР ССЫЛОК И КАРТИНОК ---
+        const links = [];
+        const images = [];
+        const imgRegex = /!\[.*?\]\((https?:\/\/[^\)]+)\)/gi;
+        let match;
+        while ((match = imgRegex.exec(body)) !== null) images.push(match[1].trim());
         
-        if (onlyBlog) {
-            tags.push('onlyblog');
+        const ytRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/gi;
+        while ((match = ytRegex.exec(body)) !== null) {
+            links.push(`https://youtube.com/shorts/${match[1]}`);
+            if (images.length === 0) images.push(`https://img.youtube.com/vi/${match[1]}/0.jpg`);
+        }
+        const scRegex = /(?:https?:\/\/)?(?:www\.)?soundcloud\.com\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+/gi;
+        while ((match = scRegex.exec(body)) !== null) links.push(match[0]);
+        if (images.length === 0) {
+            const rawImgMatch = body.match(/(https?:\/\/[^\s"'<>]+?\.(?:jpg|jpeg|png|gif|webp|svg)(?:\?[^\s"'<>]*)?)/i);
+            if (rawImgMatch) images.push(rawImgMatch[1].trim());
         }
 
-        const permlink = 'post-' + Date.now();
+        const metaObj = { tags: tags, app: 'mini-client/1.0', format: 'markdown' };
+        if (images.length > 0) metaObj.image = images;
+        if (links.length > 0) metaObj.links = links;
+        const jsonMetadata = JSON.stringify(metaObj);
 
-	// Извлекаем первую картинку из тела для превью
-		let postImage = null;
-		const imgMatch = body.match(/!\[.*?\]\((https?:\/\/[^\)]+)\)/i);
-		if (imgMatch) {
-			postImage = fixImageUrl(imgMatch[1].trim());
-			} else {
-    // fallback: голый URL картинки
-		const rawImgMatch = body.match(/(?:^|\s)(https?:\/\/[^\s"'<>]+?\.(?:jpg|jpeg|png|gif|webp|svg)(?:\?[^\s"'<>]*)?)(?=\s|$)/i);
-		if (rawImgMatch) {
-			postImage = fixImageUrl(rawImgMatch[1].trim());
-		}
-	}
-
-		const metaObj = { tags: tags, app: 'mini-client/1.0' };
-			if (postImage) metaObj.image = [postImage];
-	const jsonMetadata = JSON.stringify(metaObj);
+        // --- ОПРЕДЕЛЯЕМ РЕЖИМ ---
+        let permlink = 'post-' + Date.now();
+        let parentAuthor = '';
+        let parentPermlink = category;
         
+        if (editingPost) {
+            // Режим редактирования
+            permlink = editingPost.permlink;
+            parentAuthor = editingPost.parent_author; // Для комментариев
+            parentPermlink = editingPost.parent_permlink; // Для комментариев
+            // Если это пост, parentAuthor будет пустым
+        }
+
         let percent_steem_dollars = 10000;
-        let max_accepted_payout = '1000000.000 GBG';
-        
-        if (payoutMode === '100') {
-            percent_steem_dollars = 0;
-        } else if (payoutMode === '0') {
-            max_accepted_payout = '0.000 GBG';
-        }
+        let max_accepted_payout = '10000.000 GBG';
+        if (payoutMode === '100') percent_steem_dollars = 0;
+        else if (payoutMode === '0') max_accepted_payout = '0.000 GBG';
 
-        document.getElementById('editorStatus').textContent = 'Отправка поста...';
+        document.getElementById('editorStatus').textContent = editingPost ? 'Сохранение изменений...' : 'Отправка поста...';
         document.getElementById('editorStatus').style.color = '#333';
         
-        // Шаг 1: отправляем сам пост
+        // Шаг 1: отправляем comment (создание или обновление)
         golos.broadcast.comment(
             currentKey, 
-            '', category, currentUser, permlink, title, body, jsonMetadata,
+            parentAuthor, parentPermlink, currentUser, permlink, title, body, jsonMetadata,
             (err, res) => {
                 if (err) { 
-                    document.getElementById('editorStatus').textContent = 'Ошибка поста: ' + (err.message || err); 
+                    document.getElementById('editorStatus').textContent = 'Ошибка: ' + (err.message || err); 
                     document.getElementById('editorStatus').style.color = 'red'; 
                     return;
                 }
                 
-                // Шаг 2: если пост ушёл, отправляем настройки выплат
-                document.getElementById('editorStatus').textContent = 'Настройка выплат...';
-                
-                golos.broadcast.commentOptions(
-                    currentKey,
-                    currentUser,
-                    permlink,
-                    max_accepted_payout,
-                    percent_steem_dollars,
-                    true,  // allow_votes
-                    true,  // allow_curation_rewards
-                    [],    // extensions
-                    (err2, res2) => {
-                        if (err2) {
-                            document.getElementById('editorStatus').textContent = 'Пост опубликован, но настройки выплат не применились: ' + (err2.message || err2);
-                            document.getElementById('editorStatus').style.color = 'orange';
-                        } else {
-                            document.getElementById('editorStatus').textContent = 'Успешно опубликовано!';
-                            document.getElementById('editorStatus').style.color = 'green';
+                // Если это НОВЫЙ пост, то настраиваем выплаты
+                if (!editingPost) {
+                    document.getElementById('editorStatus').textContent = 'Настройка выплат...';
+                    golos.broadcast.commentOptions(
+                        currentKey, currentUser, permlink, max_accepted_payout, percent_steem_dollars, true, true, [],
+                        (err2, res2) => {
+                            if (err2) {
+                                document.getElementById('editorStatus').textContent = 'Пост создан, но настройки не применились: ' + (err2.message || err2);
+                                document.getElementById('editorStatus').style.color = 'orange';
+                            } else {
+                                document.getElementById('editorStatus').textContent = 'Успешно опубликовано!';
+                                document.getElementById('editorStatus').style.color = 'green';
+                            }
+                            finishPublish();
                         }
-                        
-                        document.getElementById('postTitle').value = ''; 
-                        document.getElementById('postBody').value = '';
-                        document.getElementById('postTags').value = '';
-                        document.getElementById('postOnlyBlog').checked = false;
-                        document.getElementById('postPayout').value = '50';
-                        switchEditorTab('editor');
-                        setTimeout(() => closeModal('editorModal'), 3000); 
-                    }
-                );
+                    );
+                } else {
+                    // Если это РЕДАКТИРОВАНИЕ, то выплаты уже настроены, просто завершаем
+                    document.getElementById('editorStatus').textContent = 'Успешно обновлено!';
+                    document.getElementById('editorStatus').style.color = 'green';
+                    finishPublish();
+                }
             }
         );
     }
 
+    function finishPublish() {
+        document.getElementById('postTitle').value = ''; 
+        document.getElementById('postBody').value = '';
+        document.getElementById('postTags').value = '';
+        document.getElementById('postOnlyBlog').checked = false;
+        document.getElementById('postPayout').value = '50';
+        switchEditorTab('editor');
+        setTimeout(() => {
+            closeModal('editorModal');
+            if (editingPost) {
+                // Если редактировали, перезагружаем пост
+                openPost(editingPost.author, editingPost.permlink);
+                editingPost = null; // Сбрасываем режим
+            }
+        }, 2000); 
+    }
+	
     // ========== ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ ==========
 
     window.openProfile = function(username) {
@@ -1859,9 +2172,26 @@ function loadMentions() {
 
         // Сортируем по дате (новые сверху)
         currentMentionsList.sort((a, b) => new Date(b.created) - new Date(a.created));
+		
+		// --- УБИРАЕМ ДУБЛИКАТЫ (оставляем только самую свежую версию) ---
+        const uniqueMentions = {};
+        currentMentionsList.forEach(m => {
+            const key = `${m.author}/${m.permlink}`;
+            if (!uniqueMentions[key] || new Date(m.created) > new Date(uniqueMentions[key].created)) {
+                uniqueMentions[key] = m;
+            }
+        });
+        currentMentionsList = Object.values(uniqueMentions);
+        
+        // Пересчитываем непрочитанные после удаления дублей
+        unreadCount = currentMentionsList.filter(m => !m.isRead).length;
+        // -----------------------------------------------------------------
+		
+		
 
         // Обновляем UI
         const badge = document.getElementById('mentionsBadge');
+		
         if (currentMentionsList.length > 0) {
             if (unreadCount > 0 && badge) {
                 badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
@@ -1951,6 +2281,8 @@ function markAllMentionsAsRead() {
             });
         }
     }, 500);
+	
+	
 </script>
 </body>
 </html>
