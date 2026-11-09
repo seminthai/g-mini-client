@@ -92,10 +92,23 @@
     }
     .reply-btn:hover { background: #2b70b8; color: white; }
 
-    .comment-replies {
+        .comment-replies {
         margin-top: 10px;
         padding-left: 15px;
         border-left: 2px solid #d0e1f0;
+    }
+
+    /* Новый класс для глубокой вложенности */
+    .comment-replies .comment-replies .comment-replies .comment-item {
+        /* Больше никаких отступов */
+    }
+    
+    /* Чтобы текст не сжимался, зададим минимальную ширину для глубоких комментов */
+    .comment-item {
+        min-width: 300px;
+        box-sizing: border-box;
+        margin-left: 0;
+        margin-right: 0;
     }
 	
 	.vote-btn { 
@@ -195,56 +208,70 @@
 
 <!-- Новый Редактор -->
 <div class="modal" id="editorModal">
-    <div class="modal-content" style="width: 800px; max-width: 95%; height: 90vh; display: flex; flex-direction: column; padding: 20px;">
+    <div class="modal-content" style="width: 95%; max-width: 1100px; height: 98vh; display: flex; flex-direction: column; padding: 15px 20px; box-sizing: border-box;">
         <span class="modal-close" onclick="closeModal('editorModal')">&times;</span>
-        <h3 style="margin-top:0; flex-shrink: 0;">Новый пост</h3>
         
-        <input type="text" id="postTitle" placeholder="Заголовок" style="margin-bottom: 10px; font-size: 18px; font-weight: bold; flex-shrink: 0;">
-        
-        <div style="display: flex; gap: 10px; margin-bottom: 10px; flex-shrink: 0;">
-            <select id="postCategory" style="padding: 10px; border-radius: 5px; border: 1px solid #ccc; flex: 1;">
-                <!-- Заполняется из JS -->
-            </select>
-            <input type="text" id="postTags" placeholder="Дополнительные теги (через запятую)" style="flex: 2; padding: 10px; border-radius: 5px; border: 1px solid #ccc;">
+        <!-- 1. ВЕРХНЯЯ ПАНЕЛЬ: Инструменты и Заголовок -->
+        <div style="display: flex; gap: 15px; margin-bottom: 10px; flex-shrink: 0; align-items: center;">
+            <!-- Панель инструментов -->
+            <div class="editor-toolbar" style="display: flex; gap: 5px;">
+                <button class="btn-outline" onclick="insertMD('**', '**')" title="Жирный"><b>Ж</b></button>
+                <button class="btn-outline" onclick="insertMD('*', '*')" title="Курсив"><i>К</i></button>
+                <button class="btn-outline" onclick="insertMD('## ', '')" title="Заголовок">H2</button>
+                <button class="btn-outline" onclick="insertMD('> ', '')" title="Цитата">"</button>
+                <button class="btn-outline" onclick="insertMD('![alt](', ')')" title="Картинка">🖼</button>
+                <button class="btn-outline" onclick="insertMD('[текст](', ')')" title="Ссылка">🔗</button>
+            </div>
+            
+            <!-- Поле заголовка -->
+            <input type="text" id="postTitle" placeholder="Заголовок" style="flex-grow: 1; padding: 8px 12px; font-size: 16px; font-weight: bold; border: 1px solid #ccc; border-radius: 5px;">
         </div>
 
-        <div class="editor-toolbar" style="display: flex; gap: 5px; margin-bottom: 10px; flex-shrink: 0; flex-wrap: wrap;">
-            <button class="btn-outline" onclick="insertMD('**', '**')" title="Жирный"><b>Ж</b></button>
-            <button class="btn-outline" onclick="insertMD('*', '*')" title="Курсив"><i>К</i></button>
-            <button class="btn-outline" onclick="insertMD('## ', '')" title="Заголовок">H2</button>
-            <button class="btn-outline" onclick="insertMD('> ', '')" title="Цитата">"</button>
-                        <button class="btn-outline" onclick="insertMD('![alt](', ')')" title="Картинка">🖼</button>
-            <button class="btn-outline" onclick="insertMD('[текст](', ')')" title="Ссылка">🔗</button>
-            <div style="flex-grow: 1;"></div>
-            <button class="btn-outline" id="tabEditorBtn" onclick="switchEditorTab('editor')">✏️ Редактор</button>
-            <button class="btn-outline" id="tabPreviewBtn" onclick="switchEditorTab('preview')">👁 Предпросмотр</button>
-        </div>
-
-        <div style="flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #ccc; border-radius: 5px;">
-            <textarea id="postBody" placeholder="Текст поста (поддерживается только Markdown, HTML-теги игнорируются)..." style="flex-grow: 1; padding: 15px; border: none; outline: none; resize: none; font-family: monospace; font-size: 15px; margin: 0; width: 100%; box-sizing: border-box;"></textarea>
-            <div id="postPreview" style="display: none; flex-grow: 1; padding: 15px; overflow-y: auto; line-height: 1.6; border-radius: 5px;"></div>
-        </div>
-
-        <!-- НАСТРОЙКИ ПУБЛИКАЦИИ -->
-        <div style="margin-top: 15px; flex-shrink: 0; padding: 15px; background: #f9f9f9; border-radius: 8px; border: 1px solid #eee;">
-            <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-				
-<label for="postPayout" style="font-size: 14px; font-weight: bold; color: #555; cursor: pointer;">💰 Выплаты:</label>                   
-				   <select id="postPayout" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
-                        <option value="50">50% / 50% (SP + GBG)</option>
-                        <option value="100">100% в Силу Голоса (SP)</option>
-                        
+        <!-- ВЫПАДАЮЩАЯ ПАНЕЛЬ НАСТРОЕК (скрыта по умолчанию) -->
+        <div id="editorSettings" style="display: none; margin-bottom: 10px; flex-shrink: 0; padding: 10px; background: #f9f9f9; border-radius: 8px; border: 1px solid #eee;">
+            <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+                <!-- Категория -->
+                <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                    <label for="postCategory" style="font-size: 14px; font-weight: bold; color: #555; white-space: nowrap;">Категория:</label>
+                    <select id="postCategory" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc; flex-grow: 1;">
+                        <!-- Заполняется из JS -->
                     </select>
                 </div>
+                <!-- Теги -->
+                <div style="display: flex; align-items: center; gap: 8px; flex: 2;">
+                    <label for="postTags" style="font-size: 14px; font-weight: bold; color: #555; white-space: nowrap;">Теги:</label>
+                    <input type="text" id="postTags" placeholder="Через запятую" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc; flex-grow: 1;">
+                </div>
+                <!-- Выплаты -->
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <input type="checkbox" id="postOnlyBlog" style="width: 16px; height: 16px; cursor: pointer;">
-                    <label for="postOnlyBlog" style="font-size: 14px; color: #555; cursor: pointer;">👁 Только для подписчиков</label>
+                    <label for="postPayout" style="font-size: 14px; font-weight: bold; color: #555;">💰 Выплаты:</label>
+                    <select id="postPayout" style="padding: 6px; border-radius: 4px; border: 1px solid #ccc;">
+                        <option value="50">50% / 50% (SP + GBG)</option>
+                        <option value="100">100% в Силу Голоса (SP)</option>
+                    </select>
                 </div>
             </div>
         </div>
 
-        <button class="btn-primary" style="margin-top: 15px; padding: 15px; font-size: 16px; flex-shrink: 0;" onclick="publishPost()">Опубликовать</button>
+        <!-- 2. ПОЛЕ ВВОДА ТЕКСТА -->
+        <div style="flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #ccc; border-radius: 5px; margin-bottom: 10px;">
+            <textarea id="postBody" placeholder="Текст поста (поддерживается только Markdown, HTML-теги игнорируются)..." style="flex-grow: 1; padding: 15px; border: none; outline: none; resize: none; font-family: monospace; font-size: 15px; margin: 0; width: 100%; box-sizing: border-box;"></textarea>
+            <div id="postPreview" style="display: none; flex-grow: 1; padding: 15px; overflow-y: auto; line-height: 1.6; border-radius: 5px;"></div>
+        </div>
+
+        <!-- 3. НИЖНЯЯ ПАНЕЛЬ: 4 Кнопки -->
+        <div style="display: flex; gap: 10px; flex-shrink: 0;">
+            <!-- Переключатели -->
+            <button class="btn-outline" id="tabEditorBtn" onclick="switchEditorTab('editor')" style="flex: 1; padding: 10px;">✏️ Редактор</button>
+            <button class="btn-outline" id="tabPreviewBtn" onclick="switchEditorTab('preview')" style="flex: 1; padding: 10px;">👁 Предпросмотр</button>
+            
+            <!-- Настройки -->
+            <button class="btn-outline" onclick="toggleSettings()" style="flex: 1; padding: 10px;">⚙️ Настройки</button>
+            
+            <!-- Публикация -->
+            <button class="btn-primary" onclick="publishPost()" style="flex: 2; padding: 10px; font-size: 16px;">Опубликовать</button>
+        </div>
+        
         <div id="editorStatus" style="margin-top: 10px; font-size: 14px; flex-shrink: 0; text-align: center;"></div>
     </div>
 </div>
@@ -258,15 +285,36 @@
 </div>
 
 <!-- Модалка ответа -->
+<!-- Модалка ответа / редактирования комментария -->
+<!-- Модалка ответа / редактирования комментария -->
 <div class="modal" id="replyModal">
-    <div class="modal-content">
+    <div class="modal-content" style="width: 600px; max-width: 95%; display: flex; flex-direction: column; max-height: 90vh;">
         <span class="modal-close" onclick="closeModal('replyModal')">&times;</span>
-        <h3 style="margin-top:0;">Ответ</h3>
-        <p style="font-size:14px; color:#555; margin-bottom:10px;" id="replyTargetText"></p>
-        <textarea id="replyBody" rows="6" placeholder="Ваш ответ..."></textarea>
+        
+        <!-- Заголовок модалки (Меняется в зависимости от режима) -->
+        <h3 style="margin-top:0; flex-shrink: 0;" id="replyModalTitle">Ответ</h3>
+        
+        <!-- Текст, на что отвечаем -->
+        <p style="font-size:14px; color:#555; margin-bottom:10px; flex-shrink: 0;" id="replyTargetText"></p>
+
+        <!-- Панель инструментов -->
+        <div class="editor-toolbar" style="display: flex; gap: 5px; margin-bottom: 10px; flex-shrink: 0; flex-wrap: wrap;">
+            <button class="btn-outline" onclick="insertReplyMD('**', '**')" title="Жирный"><b>Ж</b></button>
+            <button class="btn-outline" onclick="insertReplyMD('*', '*')" title="Курсив"><i>К</i></button>
+            <button class="btn-outline" onclick="insertReplyMD('> ', '')" title="Цитата">"</button>
+            <div style="flex-grow: 1;"></div>
+            <button class="btn-outline" id="replyTabEditorBtn" onclick="switchReplyTab('editor')">✏️ Ред.</button>
+            <button class="btn-outline" id="replyTabPreviewBtn" onclick="switchReplyTab('preview')">👁 Пред.</button>
+        </div>
+
+        <!-- Поля ввода и предпросмотра -->
+        <div style="flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #ccc; border-radius: 5px; margin-bottom: 10px;">
+            <textarea id="replyBody" rows="6" placeholder="Ваш ответ..." style="flex-grow: 1; padding: 10px; border: none; outline: none; resize: none; font-family: monospace; font-size: 15px;"></textarea>
+            <div id="replyPreview" style="display: none; flex-grow: 1; padding: 15px; overflow-y: auto; line-height: 1.6;"></div>
+        </div>
         
         <!-- Панель смайлов -->
-        <div style="margin-bottom: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
+        <div style="margin-bottom: 10px; display: flex; gap: 5px; flex-wrap: wrap; flex-shrink: 0;">
             <span style="font-size: 12px; color: #777; width: 100%; margin-bottom: 5px;">Быстрые смайлы:</span>
             <button type="button" class="emoji-btn" onclick="insertEmoji('😀')">😀</button>
             <button type="button" class="emoji-btn" onclick="insertEmoji('😂')">😂</button>
@@ -280,8 +328,8 @@
             <button type="button" class="emoji-btn" onclick="insertEmoji('💯')">💯</button>
         </div>
 
-        <button class="btn-primary" style="width:100%; padding:10px;" onclick="sendReply()">Отправить</button>
-        <div id="replyStatus" style="margin-top:10px; font-size:14px;"></div>
+        <button class="btn-primary" style="width:100%; padding:10px; flex-shrink: 0;" onclick="sendReply()" id="replySubmitBtn">Отправить</button>
+        <div id="replyStatus" style="margin-top:10px; font-size:14px; flex-shrink: 0; text-align: center;"></div>
     </div>
 </div>
 
@@ -331,7 +379,7 @@
 </div>
 
 <script>
-    golos.config.set('websocket', 'wss://api.aleksw.space/ws');
+    golos.config.set('websocket', 'wss://api.aleksw.space/ws');   // wss://ruapi.golos.today/ws
     
     // Глобальные переменные состояния
     let currentUser = null, currentKey = null, currentTab = 'new', lastPost = null, isLoading = false;
@@ -555,6 +603,16 @@ function copyPostLink(service) {
             const height = isShorts ? '560' : '315';
             return `\n<div style="text-align: center; margin: 15px 0;"><iframe width="${width}" height="${height}" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe></div>\n`;
         });
+		
+		// Rutube
+			const rutubeRegex = /(?:https?:\/\/)?(?:www\.)?rutube\.ru\/video\/([a-zA-Z0-9]+)(?:[^\s]*)?/gi;        text = text.replace(rutubeRegex, (match, videoId) => {
+            return `\n<div style="text-align: center; margin: 15px 0;"><iframe width="720" height="405" src="https://rutube.ru/play/embed/${videoId}" frameborder="0" allowfullscreen></iframe></div>\n`;
+        });
+
+        // Rutube Shorts
+			const rutubeShortsRegex = /(?:https?:\/\/)?(?:www\.)?rutube\.ru\/shorts\/([a-zA-Z0-9]+)(?:[^\s]*)?/gi;        text = text.replace(rutubeShortsRegex, (match, videoId) => {
+            return `\n<div style="text-align: center; margin: 15px 0;"><iframe width="315" height="560" src="https://rutube.ru/play/embed/${videoId}" frameborder="0" allowfullscreen></iframe></div>\n`;
+        });
 
         // 3. Обработка SoundCloud (если пришла голая ссылка)
         const scRegex = /(?:https?:\/\/)?(?:www\.)?soundcloud\.com\/([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)(?:[^\s]*)?/g;
@@ -728,10 +786,18 @@ function copyPostLink(service) {
         loadPosts();
     }
 
-    function loadPosts() {
+        function loadPosts() {
         if (isLoading) return;
         isLoading = true;
 
+        // 1. Очищаем экран от старых постов и показываем загрузку
+        // (делаем это только при загрузке первой страницы, не при "Загрузить еще")
+        if (!lastPost) {
+            document.getElementById('app').innerHTML = '<p>Загрузка...</p>';
+        }
+        document.getElementById('loadMoreContainer').style.display = 'none';
+
+        // --- ЛЕНТА "МОЯ ЛЕНТА" ---
         if (currentTab === 'myfeed') {
             let currentEntryId = 0;
             if (lastPost && lastPost.feed_entry_id) {
@@ -746,38 +812,25 @@ function copyPostLink(service) {
                     return; 
                 }
                 
-                if (result.length === 0) {
-                    if (!lastPost) document.getElementById('app').innerHTML = '<p>В вашей ленте пока нет постов.</p>';
-                    document.getElementById('loadMoreContainer').style.display = 'none';
-                    return;
-                }
-
                 if (lastPost && result.length > 0 && result[0].entry_id === lastPost.feed_entry_id) {
                     result.shift();
                 }
                 
                 if (result.length === 0) {
-                    document.getElementById('loadMoreContainer').style.display = 'none';
+                    if (!lastPost) document.getElementById('app').innerHTML = '<p>В вашей ленте пока нет постов.</p>';
                     return;
                 }
 
                 const lastEntry = result[result.length - 1];
                 lastPost = { feed_entry_id: lastEntry.entry_id }; 
 
-                const postsToLoad = result.map(item => ({
-                    author: item.author,
-                    permlink: item.permlink
-                }));
-
-                if (!currentEntryId) {
-                    document.getElementById('app').innerHTML = '';
-                }
+                const postsToLoad = result.map(item => ({ author: item.author, permlink: item.permlink }));
+                if (!currentEntryId) document.getElementById('app').innerHTML = '';
                 
                 const loadFullPost = (author, permlink) => {
                     return new Promise((resolve) => {
                         golos.api.getContent(author, permlink, (err, post) => {
-                            if (err || !post) resolve(null);
-                            else resolve(post);
+                            if (err || !post) resolve(null); else resolve(post);
                         });
                     });
                 };
@@ -787,16 +840,14 @@ function copyPostLink(service) {
                         const post = await loadFullPost(item.author, item.permlink);
                         if (post) renderPost(post);
                     }
-                    
-                    if (result.length > limit-1) {
-                        document.getElementById('loadMoreContainer').style.display = 'block';
-                    }
+                    if (result.length > limit-1) document.getElementById('loadMoreContainer').style.display = 'block';
                 };
-
                 fetchAll();
             });
             return;
         }
+
+        // --- ВКЛАДКИ "НОВОЕ" и "МОЙ БЛОГ" ---
         const params = { limit: 6 };
         if (lastPost) { params.start_author = lastPost.author; params.start_permlink = lastPost.permlink; }
 
@@ -805,11 +856,10 @@ function copyPostLink(service) {
             if (err) { document.getElementById('app').innerHTML = '<p>Ошибка загрузки: ' + err + '</p>'; return; }
             if (!result || result.length === 0) {
                 if (!lastPost) document.getElementById('app').innerHTML = '<p>Постов не найдено.</p>';
-                document.getElementById('loadMoreContainer').style.display = 'none';
                 return;
             }
-            if (lastPost && result[0].permlink === lastPost.permlink) result.shift();
-            if (result.length === 0) { document.getElementById('loadMoreContainer').style.display = 'none'; return; }
+            
+            // Очищаем "Загрузка..." перед рендером
             if (!lastPost) document.getElementById('app').innerHTML = '';
             
             result.forEach(post => renderPost(post));
@@ -820,11 +870,29 @@ function copyPostLink(service) {
         if (currentTab === 'new') {
             golos.api.getDiscussionsByCreated(params, callback);
         } else if (currentTab === 'feed') {
-            const authorParams = { limit: 6, start_author: currentUser, start_permlink: '' };
-            if (lastPost) { authorParams.start_permlink = lastPost.permlink; }
-            golos.api.getDiscussionsByAuthorBeforeDate(currentUser, authorParams.start_permlink, new Date().toISOString().split('.')[0], authorParams.limit, (err, res) => {
-                if (res) res = res.filter(p => p.author === currentUser);
-                callback(err, res);
+            const query = {
+                select_authors: [currentUser],
+                select_tags: [''],
+                limit: 20
+            };
+
+            golos.api.getDiscussionsByBlog(query, (err, res) => {
+                if (err) { callback(err, null); return; }
+                
+                let filteredRes = res.filter(p => p.author === currentUser);
+                
+                if (lastPost) {
+                    const lastIndex = filteredRes.findIndex(p => p.permlink === lastPost.permlink);
+                    if (lastIndex !== -1) {
+                        filteredRes = filteredRes.slice(lastIndex + 1);
+                    }
+                }
+                
+                const limit = 6;
+                const postsToRender = filteredRes.slice(0, limit);
+                
+                // Передаем в общий callback, который сам очистит "Загрузку" и отрисует
+                callback(null, postsToRender);
             });
         }
     }
@@ -999,6 +1067,22 @@ function saveMentionsPeriod(val) {
                 videos.push(iframeHTML);
                 return `%%VIDEO_${videos.length - 1}%%`;
             });
+			
+			            // --- Rutube (обычные) ---
+            const rutubeRegex = /(?:https?:\/\/)?(?:www\.)?rutube\.ru\/video\/([a-zA-Z0-9]+)(?:[^\s]*)?/g;
+            text = text.replace(rutubeRegex, (match, videoId) => {
+                const iframeHTML = `<div style="text-align: center; margin: 15px 0;"><iframe width="720" height="405" src="https://rutube.ru/play/embed/${videoId}" frameborder="0" allowfullscreen></iframe></div>`;
+                videos.push(iframeHTML);
+                return `%%VIDEO_${videos.length - 1}%%`;
+            });
+
+            // --- Rutube Shorts (вертикальные) ---
+            const rutubeShortsRegex = /(?:https?:\/\/)?(?:www\.)?rutube\.ru\/shorts\/([a-zA-Z0-9]+)(?:[^\s]*)?/g;
+            text = text.replace(rutubeShortsRegex, (match, videoId) => {
+                const iframeHTML = `<div style="text-align: center; margin: 15px 0;"><iframe width="315" height="560" src="https://rutube.ru/play/embed/${videoId}" frameborder="0" allowfullscreen></iframe></div>`;
+                videos.push(iframeHTML);
+                return `%%VIDEO_${videos.length - 1}%%`;
+            });
 
             text = text.replace(/<div[^>]*class=["'][^"']*(?:pull-right|pull-left)[^"']*["'][^>]*>[\s\S]*?<img[^>]+src=["']([^"']+)["'][^>]*>[\s\S]*?<\/div>/gi, (match, url) => {
                 const fixedUrl = fixImageUrl(url.trim());
@@ -1161,10 +1245,13 @@ ${authorButtons}
         });
     };
 	
+
+    // ========== ОТВЕТ / РЕДАКТИРОВАНИЕ КОММЕНТАРИЯ ==========
     let replyParentAuthor = null;
     let replyParentPermlink = null;
+    let editingCommentPermlink = null; // Если не null, значит мы редактируем
 
-    function openReplyModal(parentAuthor, parentPermlink, postTitle) {
+    window.openReplyModal = function(parentAuthor, parentPermlink, postTitle) {
         if (!currentUser || !currentKey) {
             alert('Для ответа нужно авторизоваться!');
             openModal('authModal');
@@ -1173,12 +1260,84 @@ ${authorButtons}
         
         replyParentAuthor = parentAuthor;
         replyParentPermlink = parentPermlink;
-        
+        editingCommentPermlink = null; // Режим "Ответ"
+
+        document.getElementById('replyModalTitle').textContent = 'Ответ';
         document.getElementById('replyTargetText').innerText = postTitle ? `В ответ на пост: "${postTitle}"` : `В ответ на комментарий @${parentAuthor}`;
         document.getElementById('replyBody').value = `@${parentAuthor}, `;
+        document.getElementById('replySubmitBtn').textContent = 'Отправить';
         document.getElementById('replyStatus').textContent = '';
         
+        switchReplyTab('editor'); // Сбрасываем на редактор
         openModal('replyModal');
+    };
+
+    window.openEditCommentModal = function(author, permlink) {
+        if (!currentUser || !currentKey) return;
+        
+        golos.api.getContent(author, permlink, (err, post) => {
+            if (err || !post) return alert('Ошибка загрузки комментария');
+
+            replyParentAuthor = post.parent_author;
+            replyParentPermlink = post.parent_permlink;
+            editingCommentPermlink = post.permlink; // Запоминаем, что это редактирование
+
+            document.getElementById('replyModalTitle').textContent = 'Редактирование комментария';
+            document.getElementById('replyTargetText').innerText = '';
+            document.getElementById('replyBody').value = post.body;
+            document.getElementById('replySubmitBtn').textContent = 'Сохранить';
+            document.getElementById('replyStatus').textContent = '';
+            
+            switchReplyTab('editor');
+            openModal('replyModal');
+        });
+    };
+
+    function switchReplyTab(tab) {
+        const textarea = document.getElementById('replyBody');
+        const preview = document.getElementById('replyPreview');
+        const btnEditor = document.getElementById('replyTabEditorBtn');
+        const btnPreview = document.getElementById('replyTabPreviewBtn');
+
+        if (tab === 'preview') {
+            let text = textarea.value;
+            const md = window.markdownit({ html: false, linkify: true, breaks: true });
+            let htmlBody = md.render(text);
+            
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = htmlBody;
+            
+            // Применяем ту же логику, что и в постах (для ссылок и упоминаний)
+            processPostDOM(tempDiv);
+            processMentions(tempDiv);
+            
+            preview.innerHTML = tempDiv.innerHTML;
+            textarea.style.display = 'none';
+            preview.style.display = 'block';
+            btnPreview.classList.add('btn-primary');
+            btnPreview.classList.remove('btn-outline');
+            btnEditor.classList.add('btn-outline');
+            btnEditor.classList.remove('btn-primary');
+        } else {
+            textarea.style.display = 'block';
+            preview.style.display = 'none';
+            btnEditor.classList.add('btn-primary');
+            btnEditor.classList.remove('btn-outline');
+            btnPreview.classList.add('btn-outline');
+            btnPreview.classList.remove('btn-primary');
+        }
+    }
+
+    function insertReplyMD(before, after) {
+        const textarea = document.getElementById('replyBody');
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = textarea.value;
+        const selected = text.substring(start, end);
+        textarea.value = text.substring(0, start) + before + selected + after + text.substring(end);
+        textarea.focus();
+        textarea.selectionStart = start + before.length;
+        textarea.selectionEnd = start + before.length + selected.length;
     }
 	
 	function insertEmoji(emoji) {
@@ -1200,14 +1359,30 @@ ${authorButtons}
     textarea.focus();
 }
 
-    function resetEditorUI() {
+            function resetEditorUI() {
+        // 1. Очищаем текстовые поля
+        document.getElementById('postTitle').value = '';
+        document.getElementById('postBody').value = '';
+        document.getElementById('postTags').value = '';
+        
+        // 2. Сбрасываем селекты (категория и выплаты)
+        document.getElementById('postCategory').selectedIndex = 0; // Первый пункт
+        document.getElementById('postPayout').value = '50'; // Ставим 50/50
+        
+        // 3. Сбрасываем глобальный режим редактирования
+        editingPost = null;
+        
+        // 4. Скрываем панель настроек (если она была открыта)
+        const settings = document.getElementById('editorSettings');
+        if (settings) settings.style.display = 'none';
+
+        // 5. Возвращаем видимость элементов (если их скрывали для комментариев)
         document.getElementById('postTitle').style.display = 'block';
         document.getElementById('postCategory').style.display = 'block';
         document.getElementById('postTags').style.display = 'block';
-        document.querySelector('#editorModal h3').textContent = 'Новый пост';
-        // Очищаем поля, если нужно
-        // document.getElementById('postTitle').value = '';
-        // document.getElementById('postBody').value = '';
+        
+        // 6. Переключаемся на вкладку «Редактор» (на случай, если были в Предпросмотре)
+        switchEditorTab('editor');
     }
 
 
@@ -1273,34 +1448,7 @@ ${authorButtons}
         });
     };
 
-        window.editComment = function(author, permlink) {
-        golos.api.getContent(author, permlink, (err, post) => {
-            if (err || !post) return alert('Ошибка загрузки комментария');
-            
-            document.getElementById('postTitle').value = ''; // Заголовок не нужен
-            document.getElementById('postBody').value = post.body;
-            
-            editingPost = {
-                author: post.author,
-                permlink: post.permlink,
-                parent_author: post.parent_author,
-                parent_permlink: post.parent_permlink,
-                isComment: true 
-            };
-
-            closePost();
-            openModal('editorModal');
-            
-            // Скрываем поле заголовка и категории для комментария
-            document.getElementById('postTitle').style.display = 'none';
-            document.getElementById('postCategory').style.display = 'none';
-            document.getElementById('postTags').style.display = 'none';
-            // Меняем заголовок модалки
-            document.querySelector('#editorModal h3').textContent = 'Редактирование комментария';
-
-            switchEditorTab('editor');
-        });
-    };
+       
 
     window.deleteComment = function(author, permlink) {
         if (!confirm('Удалить комментарий?')) return;
@@ -1316,26 +1464,24 @@ ${authorButtons}
 
 
 
-        function sendReply() {
+            function sendReply() {
         const body = document.getElementById('replyBody').value.trim();
-        if (!body) return alert('Введите текст ответа');
+        if (!body) return alert('Введите текст');
 
-        // Находим кнопку "Отправить"
-        const submitBtn = document.querySelector('#replyModal .btn-primary');
+        const submitBtn = document.getElementById('replySubmitBtn');
         const originalText = submitBtn.innerHTML;
-        
-        // Блокируем кнопку
         submitBtn.innerHTML = 'Отправка...';
         submitBtn.disabled = true;
 
-        const permlink = 're-' + Date.now();
+        // Если это редактирование, используем старый permlink, иначе генерируем новый
+        const permlink = editingCommentPermlink || ('re-' + Date.now());
+        
         const jsonMetadata = JSON.stringify({ tags: ['golos'], app: 'mini-client/1.0' });
 
         document.getElementById('replyStatus').textContent = 'Отправка...';
         document.getElementById('replyStatus').style.color = '#333';
 
         golos.broadcast.comment(currentKey, replyParentAuthor, replyParentPermlink, currentUser, permlink, '', body, jsonMetadata, (err, res) => {
-            // Разблокируем кнопку в любом случае (успех или ошибка)
             submitBtn.innerHTML = originalText;
             submitBtn.disabled = false;
 
@@ -1343,11 +1489,19 @@ ${authorButtons}
                 document.getElementById('replyStatus').textContent = 'Ошибка: ' + (err.message || err);
                 document.getElementById('replyStatus').style.color = 'red';
             } else {
-                document.getElementById('replyStatus').textContent = 'Успешно отправлено!';
+                document.getElementById('replyStatus').textContent = editingCommentPermlink ? 'Успешно обновлено!' : 'Успешно отправлено!';
                 document.getElementById('replyStatus').style.color = 'green';
+                
                 setTimeout(() => {
                     closeModal('replyModal');
-                    loadComments(window.currentPostAuthor, window.currentPostPermlink);
+                    if (editingCommentPermlink) {
+                        // Если редактировали, перезагружаем комментарии
+                        loadComments(window.currentPostAuthor, window.currentPostPermlink);
+                        editingCommentPermlink = null; // Сбрасываем
+                    } else {
+                        // Если отвечали, перезагружаем комментарии
+                        loadComments(window.currentPostAuthor, window.currentPostPermlink);
+                    }
                 }, 1500);
             }
         });
@@ -1395,6 +1549,8 @@ ${authorButtons}
                 container.innerHTML = '<p style="color:#777;">Комментариев пока нет. Будьте первым!</p>';
                 return;
             }
+			
+			//if (depth > 15) return; 
 
             const md = window.markdownit({ html: true, linkify: true, breaks: true });
 
@@ -1412,7 +1568,7 @@ ${authorButtons}
 
                 tempCommentDiv.querySelectorAll('a').forEach(link => {
                     const href = link.getAttribute('href');
-                    if (href && !href.includes('golos.id/') && !href.includes('golos.today/') && !href.includes('golos.io/') && !href.includes('golos.in/')) {
+                    if (href && !href.includes('golos.id/') && !href.includes('golos.today/') && !href.includes('golos.in/')) {
                         link.setAttribute('target', '_blank');
                         link.setAttribute('rel', 'noopener noreferrer');
                     }
@@ -1447,8 +1603,9 @@ ${authorButtons}
                     // Редактировать комментарий можно всегда (или до выплат)
                     
                     commentAuthorButtons = `
-                        <button class="reply-btn" onclick="editComment('${escapeAttr(comment.author)}', '${escapeAttr(comment.permlink)}')" style="border-color: #f39c12; color: #f39c12; font-size:11px;">✏️ Ред.</button>
-                        ${canDeleteComment ? `<button class="reply-btn" onclick="deleteComment('${escapeAttr(comment.author)}', '${escapeAttr(comment.permlink)}')" style="border-color: #c0392b; color: #c0392b; font-size:11px;">🗑 Удал.</button>` : ''}
+					<button class="reply-btn" onclick="openEditCommentModal('${escapeAttr(comment.author)}', '${escapeAttr(comment.permlink)}')" style="...">✏️ Ред.</button>
+                        
+						${canDeleteComment ? `<button class="reply-btn" onclick="deleteComment('${escapeAttr(comment.author)}', '${escapeAttr(comment.permlink)}')" style="border-color: #c0392b; color: #c0392b; font-size:11px;">🗑 Удал.</button>` : ''}
                     `;
                 }
 
@@ -1469,12 +1626,24 @@ ${authorButtons}
                 
                 container.appendChild(commentDiv);
 
-                if (comment.children > 0) {
-                    const repliesContainer = document.createElement('div');
-                    repliesContainer.className = 'comment-replies';
-                    commentDiv.appendChild(repliesContainer);
-                    
-                    await renderTree(comment.author, comment.permlink, repliesContainer, depth + 1);
+                   if (comment.children > 0) {
+                    if (depth < 3) {
+                        // Для первых 3 уровней рисуем вложенно
+                        const repliesContainer = document.createElement('div');
+                        repliesContainer.className = 'comment-replies';
+                        commentDiv.appendChild(repliesContainer);
+                        await renderTree(comment.author, comment.permlink, repliesContainer, depth + 1);
+                    } else {
+                        // Для 4+ уровня рисуем "плоско", добавляя отступ только у самого комментария
+                        // Никаких новых .comment-replies, чтобы не накапливать padding-left
+                        const marker = document.createElement('div');
+                        marker.style.cssText = 'font-size: 11px; color: #2b70b8; margin-top: 10px; margin-bottom: 2px; padding-left: 15px;';
+                        marker.textContent = '↳ Ответ на комментарий:';
+                        container.appendChild(marker);
+                        
+                        // Рекурсивно вызываем для этого же container (без создания нового div)
+                        await renderTree(comment.author, comment.permlink, container, depth + 1);
+                    }
                 }
             }
         };
@@ -1613,8 +1782,69 @@ ${authorButtons}
         textarea.selectionStart = start + before.length;
         textarea.selectionEnd = start + before.length + selected.length;
     }
+	
+	            function autoWrapLinks() {
+        const textarea = document.getElementById('postBody');
+        let text = textarea.value;
+        let changed = false;
 
-        function switchEditorTab(tab) {
+        // 1. Сначала полностью УДАЛЯЕМ все существующие iframe (и их содержимое)
+        // Это уберет мусор, который остался от копипаста.
+        text = text.replace(/<iframe\b[^>]*>.*?<\/iframe>/gis, '');
+        text = text.replace(/<iframe\b[^>]*\/?>/gi, '');
+
+        // 2. Ищем картинки
+        const imgRegex = /(^|\s)(https?:\/\/[^\s"'<>]+?\.(?:jpg|jpeg|png|gif|webp|svg)(?:\?[^\s"'<>]*)?)(?=\s|$)/gi;
+        text = text.replace(imgRegex, (match, space, url) => {
+            changed = true;
+            return `${space}![img](${url})`;
+        });
+
+        // 3. Ищем Rutube (обычные)
+        const rutubeRegex = /(?:https?:\/\/)?(?:www\.)?rutube\.ru\/video\/([a-zA-Z0-9]+)(?:[^\s]*)?/gi;
+        text = text.replace(rutubeRegex, (match, videoId) => {
+            changed = true;
+            return `\n<iframe width="720" height="405" src="https://rutube.ru/play/embed/${videoId}" frameborder="0" allowfullscreen></iframe>\n`;
+        });
+
+        // 4. Ищем Rutube Shorts
+			const rutubeShortsRegex = /(?:https?:\/\/)?(?:www\.)?rutube\.ru\/shorts\/([a-zA-Z0-9]+)(?:[^\s]*)?/gi;        text = text.replace(rutubeShortsRegex, (match, videoId) => {
+            changed = true;
+            return `\n<iframe width="315" height="560" src="https://rutube.ru/play/embed/${videoId}" frameborder="0" allowfullscreen></iframe>\n`;
+        });
+
+        // 5. Ищем YouTube (если нужно)
+        const ytRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/gi;
+        text = text.replace(ytRegex, (match, videoId) => {
+            changed = true;
+            const isShorts = match.includes('/shorts/');
+            const width = isShorts ? '315' : '560';
+            const height = isShorts ? '560' : '315';
+            return `\n<iframe width="${width}" height="${height}" src="https://www.youtube.com/embed/${videoId}" frameborder="0" allowfullscreen></iframe>\n`;
+        });
+
+        // Очищаем от лишних пустых строк (опционально)
+        text = text.replace(/\n{3,}/g, '\n\n');
+
+        if (changed) {
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            textarea.value = text;
+            textarea.selectionStart = start;
+            textarea.selectionEnd = end;
+        }
+    }
+
+            function toggleSettings() {
+        const settings = document.getElementById('editorSettings');
+        if (settings.style.display === 'none') {
+            settings.style.display = 'block';
+        } else {
+            settings.style.display = 'none';
+        }
+    }
+		
+		function switchEditorTab(tab) {
         currentEditorTab = tab;
         const textarea = document.getElementById('postBody');
         const preview = document.getElementById('postPreview');
@@ -1683,7 +1913,7 @@ ${authorButtons}
         const category = document.getElementById('postCategory').value;
         const extraTagsRaw = document.getElementById('postTags').value.trim();
         const payoutMode = document.getElementById('postPayout').value;
-        const onlyBlog = document.getElementById('postOnlyBlog').checked;
+       
         
         if (!editingPost?.isComment && !title) {
             return alert('Заполните заголовок');
@@ -1707,7 +1937,7 @@ ${authorButtons}
             tags = [...new Set([...tags, ...extraTags])];
         }
         tags = tags.filter(t => t && t !== '-' && t.length > 1);
-        if (onlyBlog) tags.push('onlyblog');
+       
 
         // --- СБОР ССЫЛОК И КАРТИНОК ---
         const links = [];
@@ -1784,26 +2014,37 @@ ${authorButtons}
                 } else {
                     // Если это РЕДАКТИРОВАНИЕ, то выплаты уже настроены, просто завершаем
                     document.getElementById('editorStatus').textContent = 'Успешно обновлено!';
-                    document.getElementById('editorStatus').style.color = 'green';
+                    document.getElementById('editorStatus').style.color = 'green';				
                     finishPublish();
                 }
             }
         );
     }
 
-    function finishPublish() {
+        function finishPublish() {
+        // 1. Очищаем поля
         document.getElementById('postTitle').value = ''; 
         document.getElementById('postBody').value = '';
         document.getElementById('postTags').value = '';
-        document.getElementById('postOnlyBlog').checked = false;
         document.getElementById('postPayout').value = '50';
+        document.getElementById('postCategory').selectedIndex = 0;
+
+        // 2. Сбрасываем режим редактирования
+        editingPost = null;
+
+        // 3. Скрываем панель настроек (если была открыта)
+        const settings = document.getElementById('editorSettings');
+        if (settings) settings.style.display = 'none';
+
+        // 4. Переключаем вкладку на «Редактор» (чтобы не оставаться в Предпросмотре)
         switchEditorTab('editor');
+
+        // 5. Закрываем модалку через 2 секунды
         setTimeout(() => {
             closeModal('editorModal');
-            if (editingPost) {
-                // Если редактировали, перезагружаем пост
-                openPost(editingPost.author, editingPost.permlink);
-                editingPost = null; // Сбрасываем режим
+            // Если редактировали, перезагружаем пост (если нужно)
+            if (window.currentPostAuthor && window.currentPostPermlink) {
+                 // openPost(window.currentPostAuthor, window.currentPostPermlink); // Опционально
             }
         }, 2000); 
     }
@@ -1887,7 +2128,7 @@ const rep = formatReputation(acc.reputation);
         });
     };
 
-    function loadUserPosts(username, startPermlink = '') {
+        function loadUserPosts(username, startPermlink = '') {
         const container = document.getElementById('profilePostsContainer');
         const btn = document.getElementById('loadMoreProfileBtn');
         if (!container) return;
@@ -1900,53 +2141,67 @@ const rep = formatReputation(acc.reputation);
             btn.disabled = true;
         }
 
-        golos.api.getDiscussionsByAuthorBeforeDate(
-            username, startPermlink, new Date().toISOString().split('.')[0], 10,
-            (err, posts) => {
-                if (err || !posts) {
-                    if (!startPermlink) container.innerHTML = '<p style="color:#777;">Ошибка загрузки.</p>';
-                    btn.textContent = 'Загрузить ещё';
-                    btn.disabled = false;
-                    return;
-                }
+        const query = {
+            select_authors: [username],
+            select_tags: [''],
+            limit: 50 // Берем с запасом, чтобы было что листать
+        };
 
-                if (posts.length === 0) {
-                    if (!startPermlink) {
-                        container.innerHTML = '<p style="color:#777;">Постов пока нет.</p>';
-                    }
-                    btn.style.display = 'none';
-                    return;
-                }
-				
-				if (startPermlink && posts.length > 0 && posts[0].permlink === startPermlink) {
-    posts.shift(); 
-}
-
-                if (!startPermlink) {
-                    container.innerHTML = '';
-                }
-
-                const html = posts.map(p => `
-                    <div class="profile-post-item" onclick="closeModal('profileModal'); openPost('${p.author}', '${p.permlink}');">
-                        <h4>${p.title || '(без заголовка)'}</h4>
-                        <div class="meta">${timeAgo(p.created)} · 💰 ${formatPayout(p)} · 💬 ${p.children}</div>
-                    </div>
-                `).join('');
-                
-                container.insertAdjacentHTML('beforeend', html);
-
-                profileLastPost = posts[posts.length - 1];
-
-               if (posts.length >=10) {
-                    btn.style.display = 'block'; 
-                } /*else {                       // закомментировали, 
-                    btn.style.display = 'none';  //чтоб не ограничивать
-                }*/                              //подгрузку списка
-                
+        golos.api.getDiscussionsByBlog(query, (err, posts) => {
+            if (err || !posts) {
+                if (!startPermlink) container.innerHTML = '<p style="color:#777;">Ошибка загрузки.</p>';
                 btn.textContent = 'Загрузить ещё';
                 btn.disabled = false;
+                return;
             }
-        );
+
+            let filteredPosts = posts.filter(p => p.author === username);
+
+            // Пагинация
+            if (startPermlink) {
+                const lastIndex = filteredPosts.findIndex(p => p.permlink === startPermlink);
+                if (lastIndex !== -1) {
+                    filteredPosts = filteredPosts.slice(lastIndex + 1);
+                }
+            }
+
+            // Берем порцию (например, 10)
+            const limit = 10;
+            const postsToRender = filteredPosts.slice(0, limit);
+
+            if (postsToRender.length === 0) {
+                if (!startPermlink) {
+                    container.innerHTML = '<p style="color:#777;">Постов пока нет.</p>';
+                }
+                btn.style.display = 'none';
+                return;
+            }
+
+            if (!startPermlink) {
+                container.innerHTML = '';
+            }
+
+            const html = postsToRender.map(p => `
+                <div class="profile-post-item" onclick="closeModal('profileModal'); openPost('${p.author}', '${p.permlink}');">
+                    <h4>${p.title || '(без заголовка)'}</h4>
+                    <div class="meta">${timeAgo(p.created)} · 💰 ${formatPayout(p)} · 💬 ${p.children}</div>
+                </div>
+            `).join('');
+            
+            container.insertAdjacentHTML('beforeend', html);
+
+            // Сохраняем для следующей пагинации
+            profileLastPost = postsToRender[postsToRender.length - 1];
+
+            if (postsToRender.length === limit) {
+                btn.style.display = 'block';
+            } else {
+                btn.style.display = 'none';
+            }
+            
+            btn.textContent = 'Загрузить ещё';
+            btn.disabled = false;
+        });
     }
 
     function loadMoreUserPosts() {
