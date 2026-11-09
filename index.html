@@ -892,31 +892,35 @@ function copyPostLink(service) {
 
         if (currentTab === 'new') {
             golos.api.getDiscussionsByCreated(params, callback);
-        } else if (currentTab === 'feed') {
-            const query = {
-                select_authors: [currentUser],
-                select_tags: [''],
-                limit: 50 // Берем много, чтобы точно хватило
-            };
+                } else if (currentTab === 'feed') {
+            const authorParams = { limit: 10, start_author: currentUser, start_permlink: '' };
+            if (lastPost) { authorParams.start_permlink = lastPost.permlink; }
 
-            golos.api.getDiscussionsByBlog(query, (err, res) => {
-                if (err) { callback(err, null); return; }
-                
-                let filteredRes = res.filter(p => p.author === currentUser);
-                
-                if (lastPost) {
-                    const lastIndex = filteredRes.findIndex(p => p.permlink === lastPost.permlink);
-                    if (lastIndex !== -1) {
-                        filteredRes = filteredRes.slice(lastIndex + 1);
+            golos.api.getDiscussionsByAuthorBeforeDate(
+                currentUser, 
+                authorParams.start_permlink, 
+                new Date().toISOString().split('.')[0], 
+                authorParams.limit, 
+                (err, res) => {
+                    if (err) {
+                        callback(err, null);
+                        return;
                     }
+                    
+                    if (!res || res.length === 0) {
+                        callback(null, []);
+                        return;
+                    }
+
+                    // Фильтруем только наши посты
+                    let filteredRes = res.filter(p => p.author === currentUser);
+                    
+                    // Сортируем по дате создания (новые сверху)
+                    filteredRes.sort((a, b) => new Date(b.created) - new Date(a.created));
+                    
+                    callback(null, filteredRes);
                 }
-                
-                // Берем 10 штук
-                const postsToRender = filteredRes.slice(0, 10);
-                
-                // Передаем в callback, который сам отрисует и покажет кнопку
-                callback(null, postsToRender);
-            });
+            );
         }
     }
 
@@ -2151,7 +2155,7 @@ const rep = formatReputation(acc.reputation);
         });
     };
 
-            function loadUserPosts(username, startPermlink = '') {
+                function loadUserPosts(username, startPermlink = '') {
         const container = document.getElementById('profilePostsContainer');
         const btn = document.getElementById('loadMoreProfileBtn');
         if (!container) return;
@@ -2164,61 +2168,62 @@ const rep = formatReputation(acc.reputation);
             btn.disabled = true;
         }
 
-        const query = {
-            select_authors: [username],
-            select_tags: [''],
-            limit: 50 // Берем много
-        };
+        // Используем старый метод, который поддерживает пагинацию
+        golos.api.getDiscussionsByAuthorBeforeDate(
+            username, 
+            startPermlink, 
+            new Date().toISOString().split('.')[0], 
+            10, // Берем по 10 штук, как в ленте
+            (err, posts) => {
+                if (err || !posts) {
+                    if (!startPermlink) container.innerHTML = '<p style="color:#777;">Ошибка загрузки.</p>';
+                    btn.textContent = 'Загрузить ещё';
+                    btn.disabled = false;
+                    return;
+                }
 
-        golos.api.getDiscussionsByBlog(query, (err, posts) => {
-            if (err || !posts) {
-                if (!startPermlink) container.innerHTML = '<p style="color:#777;">Ошибка загрузки.</p>';
+                // Убираем дубликат (если API вернул пост, с которого начали)
+                if (startPermlink && posts.length > 0 && posts[0].permlink === startPermlink) {
+                    posts.shift(); 
+                }
+
+                if (posts.length === 0) {
+                    if (!startPermlink) {
+                        container.innerHTML = '<p style="color:#777;">Постов пока нет.</p>';
+                    }
+                    btn.style.display = 'none';
+                    return;
+                }
+
+                // Сортируем полученную пачку по дате создания (новые сверху)
+                posts.sort((a, b) => new Date(b.created) - new Date(a.created));
+
+                if (!startPermlink) {
+                    container.innerHTML = '';
+                }
+
+                const html = posts.map(p => `
+                    <div class="profile-post-item" onclick="closeModal('profileModal'); openPost('${p.author}', '${p.permlink}');">
+                        <h4>${p.title || '(без заголовка)'}</h4>
+                        <div class="meta">${timeAgo(p.created)} · 💰 ${formatPayout(p)} · 💬 ${p.children}</div>
+                    </div>
+                `).join('');
+                
+                container.insertAdjacentHTML('beforeend', html);
+
+                profileLastPost = posts[posts.length - 1];
+
+                // Показываем кнопку, если пришло 10 постов (значит, есть еще)
+                if (posts.length >= 10) {
+                    btn.style.display = 'block'; 
+                } /*else {
+                    btn.style.display = 'none';
+                }*/
+                
                 btn.textContent = 'Загрузить ещё';
                 btn.disabled = false;
-                return;
             }
-
-            let filteredPosts = posts.filter(p => p.author === username);
-
-            if (startPermlink) {
-                const lastIndex = filteredPosts.findIndex(p => p.permlink === startPermlink);
-                if (lastIndex !== -1) {
-                    filteredPosts = filteredPosts.slice(lastIndex + 1);
-                }
-            }
-
-            // Берем 10 постов
-            const postsToRender = filteredPosts.slice(0, 10);
-
-            if (postsToRender.length === 0) {
-                if (!startPermlink) {
-                    container.innerHTML = '<p style="color:#777;">Постов пока нет.</p>';
-                }
-                btn.style.display = 'none';
-                return;
-            }
-
-            if (!startPermlink) {
-                container.innerHTML = '';
-            }
-
-            const html = postsToRender.map(p => `
-                <div class="profile-post-item" onclick="closeModal('profileModal'); openPost('${p.author}', '${p.permlink}');">
-                    <h4>${p.title || '(без заголовка)'}</h4>
-                    <div class="meta">${timeAgo(p.created)} · 💰 ${formatPayout(p)} · 💬 ${p.children}</div>
-                </div>
-            `).join('');
-            
-            container.insertAdjacentHTML('beforeend', html);
-
-            profileLastPost = postsToRender[postsToRender.length - 1];
-
-            // ВСЕГДА показываем кнопку, если что-то пришло
-            btn.style.display = 'block';
-            
-            btn.textContent = 'Загрузить ещё';
-            btn.disabled = false;
-        });
+        );
     }
 
     function loadMoreUserPosts() {
