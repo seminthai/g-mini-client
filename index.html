@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Golos mini client</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="golos.min.js"></script>
+  <script src="remarkable.js"></script>
+</head>
+<body>
+
+  <!-- Верхняя панель навигации -->
+  <header class="topbar">
+    <div class="topbar-inner">
+		<div class="brand">Golos <span>mini client</span></div>
+      <!-- Вкладки лент -->
+      <nav class="nav-tabs" id="nav-tabs">
+        <button type="button" class="nav-tab active" data-feed="created">Новое</button>
+        <button type="button" class="nav-tab auth-only hidden" data-feed="feed">Моя лента</button>
+        <button type="button" class="nav-tab auth-only hidden" data-feed="blog">Мой блог</button>
+        <button type="button" class="nav-tab auth-only hidden" data-feed="comments">Комментарии</button>
+      </nav>
+
+      <!-- Правая панель: Гость -->
+      <div class="topbar-right" id="guest-panel">
+        <button type="button" class="btn-primary" id="open-auth-btn">Авторизоваться</button>
+      </div>
+
+      <!-- Правая панель: Авторизованный пользователь -->
+      <div class="topbar-right hidden" id="user-panel">
+        
+		<button type="button" class="icon-btn" id="open-mentions-btn" title="Упоминания" style="position: relative;">
+  🔔
+  <span id="mentions-badge" style="display: none; position: absolute; top: -5px; right: -5px; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 11px; font-weight: bold;">0</span>
+</button>
+		
+        <button type="button" class="icon-btn" id="open-editor-btn" onclick="openEditorForNewPost()" title="Написать пост">✍️</button>
+        
+        <div class="battery-status" title="Сила голосования (батарейка)">
+          <span class="battery-icon">🔋</span>
+          <span id="voting-power-text">100%</span>
+        </div>
+
+        <span class="current-user-link" id="header-username" title="Открыть мой профиль">@user</span>
+        <button type="button" class="icon-btn logout-btn" id="logout-btn" title="Выйти">Выйти</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Основной контейнер контента -->
+  <main class="main-container">
+    <!-- Панель фильтров для вкладки "Комментарии" (всегда первая в ленте комментариев) -->
+    <div class="comments-filter-bar hidden" id="comments-filter-bar">
+      <div class="filter-buttons">
+        <button type="button" class="filter-btn active" data-cmode="to_me">Мне</button>
+        <button type="button" class="filter-btn" data-cmode="my">Мои</button>
+      </div>
+      <div class="filter-target-group">
+  <input type="text" id="target-user-input" class="filter-input" placeholder="Логин пользователя">
+  <button type="button" class="filter-btn" id="btn-his-comments">🔍</button>
+</div>
+    </div>
+
+    <!-- Лента карточек -->
+    <div id="feed-container"></div>
+    <div id="loader">Загрузка ленты...</div>
+  </main>
+
+  <!-- Плавающая кнопка «Наверх» -->
+  <button type="button" id="scroll-top-btn" class="scroll-top-btn" title="Наверх">▲</button>
+
+  <!-- Всплывающая подсказка (Toast) -->
+  <div id="toast" class="toast"></div>
+
+  <!-- 1. Модальное окно чтения поста (кнопка закрытия вынесена за пределы окна поста) -->
+  <div id="reader-modal" class="modal-overlay">
+    <div class="reader-wrapper">
+      <div class="reader-box" id="reader-box">
+        <div id="reader-content">Загрузка поста...</div>
+      </div>
+      <button type="button" class="reader-outside-close" id="close-reader" title="Закрыть пост (Esc)">✕</button>
+    </div>
+  </div>
+
+  <!-- 2. Модальное окно Авторизации -->
+  <div id="auth-modal" class="modal-overlay">
+    <div class="modal-card small-modal">
+      <div class="modal-header">
+        <h3>Вход в Golos mini client</h3>
+        <button type="button" class="modal-close-x" data-close="auth-modal">✕</button>
+      </div>
+      <div class="form-group">
+        <label>Логин в блокчейне Голос (без @)</label>
+        <input type="text" id="login-username" class="form-input" placeholder="например: golos">
+      </div>
+      <div class="form-group">
+        <label>Приватный постинг-ключ (Posting Key)</label>
+        <input type="password" id="login-posting-key" class="form-input" placeholder="5K... (рекомендуется Posting)">
+<small style="color: #64748b; font-size: 12px; display: block; margin-top: 4px;">
+  Рекомендуем использовать Posting-ключ. Active ключ нужен только для переводов и вывода средств.
+</small>
+      </div>
+      <div class="form-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="login-remember" checked>
+          <span>Запомнить меня на этом устройстве</span>
+        </label>
+      </div>
+      <div id="auth-error" class="error-text"></div>
+      <button type="button" class="btn-primary full-width" id="submit-auth-btn">Войти</button>
+    </div>
+  </div>
+
+  <!-- 3. Модальное окно мини-профиля автора (Иконка, логин и список названий постов) -->
+<div id="profile-modal" class="modal-overlay">
+  <div class="modal-card medium-modal">
+    <div class="modal-header">
+      <div class="profile-head-info">
+        <img id="profile-avatar" class="profile-avatar" src="" alt="avatar">
+        <div>
+          <h3 id="profile-username" style="margin:0;">@author</h3>
+          <div id="profile-reputation" style="font-size: 13px; color: #64748b; margin-top: 4px;">⭐ Репутация: 0</div>
+        </div>
+      </div>
+      <button type="button" class="modal-close-x" data-close="profile-modal">✕</button>
+    </div>
+    
+    <div id="profile-actions" style="margin-bottom: 15px;"></div>
+
+    <div id="profile-posts-list" class="profile-posts-list">Загрузка постов...</div>
+  </div>
+</div>
+
+  <!-- 4. Модальное окно выбора силы голоса и суммы доната -->
+  <div id="like-modal" class="modal-overlay">
+    <div class="modal-card small-modal">
+      <div class="modal-header">
+        <h3 id="like-modal-title">Поддержать</h3>
+        <button type="button" class="modal-close-x" data-close="like-modal">✕</button>
+      </div>
+
+      <div class="form-group">
+        <div class="label-between">
+          <span>Сила голоса:</span>
+          <strong id="vote-weight-label" style="color:#2b7bba;">100%</strong>
+        </div>
+        <input type="range" id="vote-weight-slider" class="range-slider" min="1" max="100" value="100">
+      </div>
+
+      <div class="form-group">
+        <div class="label-between">
+          <span>Сумма доната (необязательно):</span>
+        </div>
+        <div class="donate-row">
+          <input type="number" id="donate-amount-input" class="form-input" min="0" step="1" placeholder="0 GOLOS">
+          <div class="tip-badge">TIP: <strong id="user-tip-balance">0.000 GOLOS</strong></div>
+        </div>
+        <div class="preset-row">
+          <button type="button" class="preset-btn" data-amount="5">5</button>
+          <button type="button" class="preset-btn" data-amount="25">25</button>
+          <button type="button" class="preset-btn" data-amount="50">50</button>
+        </div>
+      </div>
+
+      <button type="button" class="btn-primary full-width" id="confirm-like-btn">❤️ Отправить</button>
+    </div>
+  </div>
+
+  <!-- 5. Заготовка: Модальное окно упоминаний (Колокольчик) -->
+  <!-- Модалка упоминаний -->
+<div id="mentions-modal" class="modal-overlay">
+  <div class="modal-card medium-modal" style="display: flex; flex-direction: column; max-height: 85vh;">
+    <div class="modal-header">
+      <h3>🔔 Упоминания</h3>
+      <button type="button" class="modal-close-x" data-close="mentions-modal">✕</button>
+    </div>
+    
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; font-size: 14px;">
+      <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+        <input type="checkbox" id="mentions-enabled-cb" onchange="toggleMentionsSetting(this.checked)">
+        Включить уведомления
+      </label>
+	  <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+  <input type="checkbox" id="mentions-live-cb" onchange="toggleLiveStream(this.checked)">
+  Live (онлайн)
+</label>
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <button onclick="markAllMentionsAsRead()" class="filter-btn" style="font-size: 12px;">Отметить всё прочитанным</button>
+         <!-- Селект периода -->
+  <select id="mentions-period-select" onchange="saveMentionsPeriod(this.value)" class="filter-btn">
+    <option value="24">За сутки</option>
+    <option value="168">За неделю</option>
+    <option value="720">За месяц</option>
+  </select>
+		
+      </div>
+    </div>
+
+    <div id="mentions-list-container" style="flex-grow: 1; overflow-y: auto;">
+      <!-- Список заполняется из JS -->
+    </div>
+  </div>
+</div>
+
+
+
+<!-- Меню "Поделиться" -->
+<div id="share-menu" class="share-menu" style="display: none;">
+  <div class="share-option" data-service="blockchain">⛓ Блокчейн</div>
+  <div class="share-option" data-service="golos.id">golos.id</div>
+  <div class="share-option" data-service="golos.today">golos.today</div>
+  <div class="share-option" data-service="golos.in">golos.in</div>
+</div>
+
+<!-- Модалка ответа / редактирования комментария -->
+<div id="reply-modal" class="modal-overlay">
+  <div class="modal-card medium-modal" style="display: flex; flex-direction: column; max-height: 90vh;">
+    <div class="modal-header">
+      <h3 id="reply-modal-title">Ответ</h3>
+      <button type="button" class="modal-close-x" data-close="reply-modal">✕</button>
+    </div>
+    
+    <p id="reply-target-text" style="font-size: 14px; color: #64748b; margin-top: 0; margin-bottom: 15px;"></p>
+
+    <!-- Панель инструментов -->
+    <div class="editor-toolbar" style="display: flex; gap: 5px; margin-bottom: 10px; flex-shrink: 0; flex-wrap: wrap;">
+      <button type="button" class="filter-btn" onclick="insertReplyMD('**', '**')" title="Жирный"><b>Ж</b></button>
+      <button type="button" class="filter-btn" onclick="insertReplyMD('*', '*')" title="Курсив"><i>К</i></button>
+      <button type="button" class="filter-btn" onclick="insertReplyMD('> ', '')" title="Цитата">"</button>
+      <div style="flex-grow: 1;"></div>
+      <button type="button" class="filter-btn" id="reply-tab-editor-btn" onclick="switchReplyTab('editor')">✏️ Ред.</button>
+      <button type="button" class="filter-btn" id="reply-tab-preview-btn" onclick="switchReplyTab('preview')">👁 Пред.</button>
+    </div>
+
+    <!-- Поле ввода и предпросмотра -->
+    <div style="flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 10px;">
+      <textarea id="reply-body" rows="6" placeholder="Ваш ответ..." spellcheck="true" style="flex-grow: 1; padding: 10px; border: none; outline: none; resize: none; font-family: monospace; font-size: 15px;"></textarea>
+      <div id="reply-preview" style="display: none; flex-grow: 1; padding: 15px; overflow-y: auto; line-height: 1.6;"></div>
+    </div>
+    
+    <!-- Панель смайлов -->
+    <div style="margin-bottom: 10px; display: flex; gap: 5px; flex-wrap: wrap; flex-shrink: 0;">
+      <span style="font-size: 12px; color: #64748b; width: 100%; margin-bottom: 5px;">Быстрые смайлы:</span>
+      <button type="button" class="emoji-btn" onclick="insertEmoji('😀')">😀</button>
+      <button type="button" class="emoji-btn" onclick="insertEmoji('😂')">😂</button>
+      <button type="button" class="emoji-btn" onclick="insertEmoji('👍')">👍</button>
+      <button type="button" class="emoji-btn" onclick="insertEmoji('❤️')">❤️</button>
+      <button type="button" class="emoji-btn" onclick="insertEmoji('🔥')">🔥</button>
+      <button type="button" class="emoji-btn" onclick="insertEmoji('🎉')">🎉</button>
+      <button type="button" class="emoji-btn" onclick="insertEmoji('🤔')">🤔</button>
+      <button type="button" class="emoji-btn" onclick="insertEmoji('😢')">😢</button>
+      <button type="button" class="emoji-btn" onclick="insertEmoji('🙏')">🙏</button>
+      <button type="button" class="emoji-btn" onclick="insertEmoji('💯')">💯</button>
+    </div>
+
+    <button type="button" class="btn-primary full-width" id="reply-submit-btn" onclick="sendReply()">Отправить</button>
+    <div id="reply-status" style="margin-top: 10px; font-size: 14px; text-align: center;"></div>
+  </div>
+</div>
+
+<!-- Модалка редактора постов -->
+<div id="editor-modal" class="modal-overlay">
+  <div class="modal-card" style="max-width: 1100px; height: 95vh; display: flex; flex-direction: column; padding: 15px 20px; box-sizing: border-box;">
+    
+    <!-- Верхняя панель: Инструменты + Заголовок + Очистка -->
+    <div style="display: flex; gap: 15px; margin-bottom: 10px; flex-shrink: 0; align-items: center;">
+      
+      <!-- Панель инструментов -->
+      <div class="editor-toolbar" style="display: flex; gap: 5px;">
+        <button type="button" class="filter-btn" onclick="insertPostMD('**', '**')" title="Жирный"><b>Ж</b></button>
+        <button type="button" class="filter-btn" onclick="insertPostMD('*', '*')" title="Курсив"><i>К</i></button>
+        <button type="button" class="filter-btn" onclick="insertPostMD('## ', '')" title="Заголовок">H2</button>
+        <button type="button" class="filter-btn" onclick="insertPostMD('> ', '')" title="Цитата">"</button>
+        <button type="button" class="filter-btn" onclick="insertPostMD('![alt](', ')')" title="Картинка">🖼</button>
+        <button type="button" class="filter-btn" onclick="insertPostMD('[текст](', ')')" title="Ссылка">🔗</button>
+      </div>
+      
+      <!-- Поле заголовка -->
+      <input type="text" id="post-title" placeholder="Заголовок" style="flex-grow: 1; padding: 8px 12px; font-size: 16px; font-weight: bold; border: 1px solid #cbd5e1; border-radius: 8px;">
+      
+      <!-- Кнопка "Очистить всё" -->
+      <button type="button" class="filter-btn" onclick="clearEditorAll()" title="Очистить всё (удалить черновик)" style="font-size: 16px; padding: 6px 10px;">🗑</button>
+      
+      <button type="button" class="modal-close-x" data-close="editor-modal" style="position: static; margin-left: 5px;">✕</button>
+    </div>
+
+    <!-- Выпадающая панель настроек -->
+    <div id="editor-settings" style="display: none; margin-bottom: 10px; flex-shrink: 0; padding: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #cbd5e1;">
+      <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+        <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+          <label for="post-category" style="font-size: 14px; font-weight: 600; color: #334155; white-space: nowrap;">Категория:</label>
+          <select id="post-category" style="padding: 6px; border-radius: 6px; border: 1px solid #cbd5e1; flex-grow: 1;">
+            <!-- Заполняется из JS -->
+          </select>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; flex: 2;">
+          <label for="post-tags" style="font-size: 14px; font-weight: 600; color: #334155; white-space: nowrap;">Теги:</label>
+          <input type="text" id="post-tags" placeholder="Через запятую" style="padding: 6px; border-radius: 6px; border: 1px solid #cbd5e1; flex-grow: 1;">
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label for="post-payout" style="font-size: 14px; font-weight: 600; color: #334155;">💰 Выплаты:</label>
+          <select id="post-payout" style="padding: 6px; border-radius: 6px; border: 1px solid #cbd5e1;">
+            <option value="50">50% / 50% (SP + GBG)</option>
+            <option value="100">100% в Силу Голоса (SP)</option>
+            <option value="0">Отказ от выплат</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Поле ввода и предпросмотра -->
+    <div style="flex-grow: 1; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 8px; margin-bottom: 10px;">
+      <textarea id="post-body" placeholder="Текст поста (поддерживается Markdown)..." spellcheck="true" style="flex-grow: 1; padding: 15px; border: none; outline: none; resize: none; font-family: monospace; font-size: 15px;"></textarea>
+      <div id="post-preview" style="display: none; flex-grow: 1; padding: 15px; overflow-y: auto; line-height: 1.6;"></div>
+    </div>
+
+    <!-- Нижняя панель -->
+    <div style="display: flex; gap: 10px; flex-shrink: 0;">
+      <button type="button" class="filter-btn" id="post-tab-editor-btn" onclick="switchPostTab('editor')" style="flex: 1; padding: 10px;">✏️ Редактор</button>
+      <button type="button" class="filter-btn" id="post-tab-preview-btn" onclick="switchPostTab('preview')" style="flex: 1; padding: 10px;">👁 Предпросмотр</button>
+      <button type="button" class="filter-btn" onclick="toggleEditorSettings()" style="flex: 1; padding: 10px;">⚙️ Настройки</button>
+      <button type="button" class="btn-primary" id="post-submit-btn" onclick="publishPost()" style="flex: 2; padding: 10px; font-size: 16px;">Опубликовать</button>
+    </div>
+    
+    <div id="post-status" style="margin-top: 10px; font-size: 14px; flex-shrink: 0; text-align: center;"></div>
+  </div>
+</div>
+
+  <script src="parser.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
